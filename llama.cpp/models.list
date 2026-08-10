@@ -21,6 +21,9 @@ unsloth/Qwen-AgentWorld-35B-A3B-GGUF  | Qwen-AgentWorld-35B-A3B-UD-IQ4_XS.gguf |
 deepreinforce-ai/Ornith-1.0-9B-GGUF   | ornith-1.0-9b-Q8_0.gguf      | Ornith-1.0-9B
 deepreinforce-ai/Ornith-1.0-35B-GGUF  | ornith-1.0-35b-Q4_K_M.gguf   | Ornith-1.0-35B
 prism-ml/Ternary-Bonsai-27B-gguf      | Ternary-Bonsai-27B-Q2_g64.gguf      | Ternary-Bonsai-27B
+meta-models/Muse-Glimmer-30B-GGUF     | muse-glimmer-30B-kquant-17gb.gguf    | Muse-Glimmer-30B
+meta-models/Muse-Glimmer-30B-GGUF     | dflash-kquant.gguf                 | Muse-Glimmer-30B
+meta-models/Muse-Glimmer-30B-GGUF     | mmproj-kquant.gguf                 | Muse-Glimmer-30B
 
 # --- Optional: Qwen fixed chat template (referenced by presets) ------------
 # froggeric/Qwen-Fixed-Chat-Templates | chat_template.jinja | ../templates

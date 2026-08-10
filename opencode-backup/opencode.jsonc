@@ -38,11 +38,11 @@
           "name": "Gemma 4 26B-A4B",
           "modalities": {"input": ["text", "image"], "output": ["text"]}
         },
-        "ornith-1.0-9b": {
+        "Ornith-1.0-9B": {
           "name": "Ornith 1.0 9B Dense",
           "modalities": {"input": ["text"], "output": ["text"]}
         },
-        "ornith-1.0-35b": {
+        "Ornith-1.0-35B": {
           "name": "Ornith 1.0 35B MoE",
           "modalities": {"input": ["text"], "output": ["text"]}
         },
@@ -61,9 +61,13 @@
         "Ternary-Bonsai-27B": {
           "name": "Ternary Bonsai 27B (1.71 bpw)",
           "modalities": {"input": ["text"], "output": ["text"]}
+        },
+        "Muse-Glimmer-30B": {
+          "name": "Muse Glimmer 30B Dense Agentic + DFlash",
+          "modalities": {"input": ["text", "image"], "output": ["text"]}
         }
       },
-      "whitelist": ["Qwen3.6-27B", "Qwen3.6-35B-A3B", "gemma-4-26B-A4B", "ornith-1.0-9b", "ornith-1.0-35b", "Qwen-AgentWorld-35B-A3B", "gemma-4-31B", "Laguna-XS-2.1", "Ternary-Bonsai-27B"]
+      "whitelist": ["Qwen3.6-27B", "Qwen3.6-35B-A3B", "gemma-4-26B-A4B", "Ornith-1.0-9B", "Ornith-1.0-35B", "Qwen-AgentWorld-35B-A3B", "gemma-4-31B", "Laguna-XS-2.1", "Ternary-Bonsai-27B", "Muse-Glimmer-30B"]
     },
     "hermine": {
       "npm": "@ai-sdk/openai-compatible",
@@ -85,11 +89,11 @@
           "name": "Gemma 4 26B-A4B",
           "modalities": {"input": ["text", "image"], "output": ["text"]}
         },
-        "ornith-1.0-9b": {
+        "Ornith-1.0-9B": {
           "name": "Ornith 1.0 9B Dense",
           "modalities": {"input": ["text"], "output": ["text"]}
         },
-        "ornith-1.0-35b": {
+        "Ornith-1.0-35B": {
           "name": "Ornith 1.0 35B MoE",
           "modalities": {"input": ["text"], "output": ["text"]}
         },
@@ -108,9 +112,13 @@
         "Ternary-Bonsai-27B": {
           "name": "Ternary Bonsai 27B (1.71 bpw)",
           "modalities": {"input": ["text"], "output": ["text"]}
+        },
+        "Muse-Glimmer-30B": {
+          "name": "Muse Glimmer 30B Dense Agentic + DFlash",
+          "modalities": {"input": ["text", "image"], "output": ["text"]}
         }
       },
-      "whitelist": ["Qwen3.6-27B", "Qwen3.6-35B-A3B", "gemma-4-26B-A4B", "ornith-1.0-9b", "ornith-1.0-35b", "Qwen-AgentWorld-35B-A3B", "gemma-4-31B", "Laguna-XS-2.1", "Ternary-Bonsai-27B"]
+      "whitelist": ["Qwen3.6-27B", "Qwen3.6-35B-A3B", "gemma-4-26B-A4B", "Ornith-1.0-9B", "Ornith-1.0-35B", "Qwen-AgentWorld-35B-A3B", "gemma-4-31B", "Laguna-XS-2.1", "Ternary-Bonsai-27B", "Muse-Glimmer-30B"]
     },
     "openrouter": {
       "options": {
