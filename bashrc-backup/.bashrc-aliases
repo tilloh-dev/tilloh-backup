@@ -27,8 +27,10 @@ alias gl='git log --graph --abbrev-commit --decorate --format=format:"%C(bold bl
 alias gobastion='kubectl exec -it -n alfresco $(kubectl get po -n alfresco | grep documentdb-client | awk "{ print $1 }") -- sh'
 
 # k8s
-alias goprod='kubectx arn:aws:eks:eu-central-1:334922741134:cluster/c4-prod-main-eks-cluster'
-alias gotest='kubectx arn:aws:eks:eu-central-1:017951492892:cluster/c4-test-main-eks-cluster'
+alias goprod='kubectx admin-crew-prod'
+alias gotest='kubectx admin-crew-test'
+alias goaiprod='kubectx ai-crew-prod'
+alias goaitest='kubectx ai-crew-test'
 alias ksvc='kubectl get svc'
 alias ks='kubectl get secrets'
 alias kexs='kubectl get externalsecrets'

@@ -150,9 +150,32 @@ go() {
   whereami
 }
 
-# Show the current kubernetes context
+# Show the current kubernetes context — environment first, unmistakable.
 whereami() {
-  kubectx
-  echo "------------------------------------------------------------"
-  kubectl config view | awk '/cluster:/{a=$0; next} /namespace:/{print a; print $0}' | sed 's/^[ \t]*//'
+  local ctx cluster ns profile short env colour reset
+
+  ctx=$(kubectl config current-context 2>/dev/null) || {
+    echo "whereami: no current context set"; return 1
+  }
+
+  cluster=$(kubectl config view --minify -o jsonpath='{.clusters[0].name}' 2>/dev/null)
+  ns=$(kubectl config view --minify -o jsonpath='{.contexts[0].context.namespace}' 2>/dev/null)
+  profile=$(kubectl config view --minify \
+    -o jsonpath='{.users[0].user.exec.env[?(@.name=="AWS_PROFILE")].value}' 2>/dev/null)
+
+  short=${cluster##*cluster/}
+  : "${ns:=default}"
+  : "${profile:=<ambient credentials>}"
+
+  reset=$'\e[0m'
+  case $short in
+    *prod*) colour=$'\e[1;31m'; env=PROD ;;
+    *test*) colour=$'\e[1;32m'; env=TEST ;;
+    *)      colour=$'\e[1;33m'; env=UNKNOWN ;;
+  esac
+
+  printf '%s%-4s%s %s\n' "$colour" "$env" "$reset" "$short"
+  printf '  context:     %s\n' "$ctx"
+  printf '  namespace:   %s\n' "$ns"
+  printf '  aws profile: %s\n' "$profile"
 }
