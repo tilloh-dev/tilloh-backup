@@ -1,5 +1,22 @@
-# Keep shell scripts LF-only so they run on Linux (this repo is Linux tooling).
-# Prevents "set: pipefail: invalid option name" from CRLF-terminated scripts.
-# (.ps1 files are intentionally left unmanaged so they keep their CRLF endings.)
-*.sh    text eol=lf
-*.bash  text eol=lf
+# Line endings are decided here, not per machine.
+#
+# This repo is checked out on Linux and on Windows (hermine), where the bash
+# scripts additionally run under WSL against the same working tree. CRLF in a
+# file that bash reads is a hard failure, not cosmetic:
+#   .bashrc-functions  -> "Syntaxfehler beim unerwarteten Wort $'{\r'"
+#   config.env.example -> "$'\r': Befehl nicht gefunden" on every line
+#   *.sh               -> "set: pipefail: invalid option name"
+# core.autocrlf cannot express this: it is per-clone and not committed, which
+# is how CRLF got into .bashrc-aliases/.bashrc-functions in the first place.
+#
+# Gitignored files are NOT covered (config.env, config.ps1, presets/models.ini),
+# so the CR stripping in config-load.sh and recommend.sh stays load-bearing.
+
+# Default: LF in the index and in every working tree, on every platform.
+*        text=auto eol=lf
+
+# Exception: PowerShell entry points are checked out CRLF on Windows.
+# The index still stores LF, so cross-machine diffs stay clean.
+# Note this does not match config.ps1.example, which bash reads and which
+# therefore stays LF.
+*.ps1    text eol=crlf

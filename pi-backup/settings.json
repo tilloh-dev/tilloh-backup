@@ -1,0 +1,6 @@
+{
+  "lastChangelogVersion": "0.84.1",
+  "theme": "dark",
+  "defaultProvider": "llama.cpp",
+  "defaultModel": "Muse-Glimmer-30B"
+}

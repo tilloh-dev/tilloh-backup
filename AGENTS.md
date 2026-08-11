@@ -78,7 +78,7 @@ tooling/
 
 | Function | Purpose |
 |----------|---------|
-| `switch <ns>` | Set current kubectl namespace |
+| `go <ns>` | Set current kubectl namespace, then print `whereami` |
 | `whereami` | Show kubectx + current cluster/namespace |
 | `watching <alias>` | `watch` the command behind a shell alias |
 | `kex <pod>` | `kubectl exec -it <pod> -- sh` |
@@ -89,6 +89,8 @@ tooling/
 | `restarting <type> <ns>` | Restart all `c4-*-backend` deployments/statefulsets in a namespace |
 | `kdel <type> <name>` | Delete a k8s entity with confirmation prompt |
 | `delete_with_status <ns>` | Delete pods with `ContainerStatusUnknown` in a namespace |
+
+This table said `switch <ns>` until 2026-08-11, when a live check showed no such function exists. The namespace switcher is `go` and always was in the installed shell; only its own `check_args` usage string still prints `switch <namespace>` (`.bashrc-functions:147`), which is a leftover from the rename. Do not "correct" the function name to match that string — `go` is what is used.
 
 ## OpenCode config notes
 
