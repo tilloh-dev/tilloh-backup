@@ -51,6 +51,16 @@ A step-by-step checklist for setting up a new system from scratch.
   ssh-add ~/.ssh/id_ed25519
   ```
 - [ ] Public Key in GitHub hinterlegen (Settings → SSH Keys)
+- [ ] `~/.ssh/config` mit GitHub-SSH auf Port 443 anlegen (Port 22 wird im Heimnetz intermittierend gefiltert – von GitHub offiziell unterstützter Alternative-Port, verhindert `Connection timed out` bei `git pull`/`git push`):
+  ```bash
+  cat >> ~/.ssh/config <<'EOF'
+Host github.com
+    HostName ssh.github.com
+    Port 443
+    User git
+EOF
+  chmod 600 ~/.ssh/config
+  ```
 - [ ] Tooling-Repo clonen:
   ```bash
   git clone git@github.com:timlohse1104/tooling.git ~/tooling
@@ -146,3 +156,10 @@ A step-by-step checklist for setting up a new system from scratch.
 ## Notizen
 
 <!-- Hier können gerätespezifische Hinweise oder Abweichungen notiert werden -->
+
+- Lieselotte (2026-08-15): SSH zu `github.com` über Port 22 bricht intermittierend ab
+  (`ssh: connect to host github.com port 22: Connection timed out`), während Port 443
+  und ICMP zu derselben IP in denselben Zeitfenstern 100 % durchkommen (beobachtet:
+  6/6 aufeinanderfolgende Timeouts, Port 443 in der Phase 12/12 erfolgreich). Ursache
+  vermutlich ein Filter auf Zielport 22 im Heimnetz/o. Provider – deshalb die
+  Port-443-Config in Abschnitt 5.
