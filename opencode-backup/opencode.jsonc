@@ -85,8 +85,12 @@
         "apiKey": "no-key"
       },
       "models": {
-        "Qwen3.8-27B": {
-          "name": "Qwen3.8 27B Dense MTP",
+        "Qwen3.8-27B-small": {
+          "name": "Qwen3.8 27B Dense 147k (MTP)",
+          "modalities": {"input": ["text", "image", "video"], "output": ["text"]}
+        },
+        "Qwen3.8-27B-large": {
+          "name": "Qwen3.8 27B Dense 262k (no MTP)",
           "modalities": {"input": ["text", "image", "video"], "output": ["text"]}
         },
         "Qwen3.6-27B": {
@@ -134,7 +138,7 @@
           "modalities": {"input": ["text"], "output": ["text"]}
         }
       },
-      "whitelist": ["Qwen3.8-27B", "Qwen3.6-27B", "Qwen3.6-35B-A3B", "gemma-4-26B-A4B", "Ornith-1.0-9B", "Ornith-1.0-35B", "Qwen-AgentWorld-35B-A3B", "gemma-4-31B", "Laguna-XS-2.1", "Ternary-Bonsai-27B", "Muse-Glimmer-30B", "Nemotron-3.5-Lightning-30B-A3B"]
+      "whitelist": ["Qwen3.8-27B-small", "Qwen3.6-27B", "Qwen3.6-35B-A3B", "gemma-4-26B-A4B", "Ornith-1.0-9B", "Ornith-1.0-35B", "Qwen-AgentWorld-35B-A3B", "gemma-4-31B", "Laguna-XS-2.1", "Ternary-Bonsai-27B", "Muse-Glimmer-30B", "Nemotron-3.5-Lightning-30B-A3B", "Qwen3.8-27B-large"]
     },
     "openrouter": {
       "options": {

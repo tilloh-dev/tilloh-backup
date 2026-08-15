@@ -90,6 +90,15 @@ Four independent inputs drive every setting:
    hit then reads like a negative result when it only means you looked in the
    wrong place. Always confirm the template was seen before concluding anything
    from its absence.
+5. **Community presets for the detected GPU class** — when `--list-devices`
+   reports an **RTX 4090** (or another 24-GB CUDA card), read
+   `.opencode/skills/llama-4090-community/SKILL.md` before finalising the
+   section. It carries what countzero/Lirezh/leewsimpson run on the same card,
+   with per-claim status against this repo's own measurements — levers like
+   ubatch-scaled compute buffers or post-Hadamard q4_0-KV quality are invisible
+   from local measurement alone. Treat its entries as hypotheses with
+   provenance: measure before adopting, and never let one override a
+   hardware/agentic-owned key.
 
 `scripts/recommend.sh` does the measuring and the mechanical decisions. It is
 not the judge: it cannot read a model card, it cannot weigh a 600 MiB margin
@@ -285,7 +294,7 @@ Preset keys are `llama-server` long flags **without** the leading `--` (see
 | True multi-GPU (2+ discrete) | `tensor-split = a,b` and/or `main-gpu`, `split-mode = layer` |
 | Non-OCR model (**agentic default, K floor**) | `cache-type-k = q8_0` — never lower by default; K (attention keys) is more sensitive to quantization loss than V |
 | Non-OCR model on **Vulkan** (V floor) | `cache-type-v = q4_0` — frees the most KV memory of any single setting |
-| Non-OCR model on **CUDA / anything else** | `cache-type-v = cache-type-k` — a mixed pair falls off the fused FlashAttention kernel (measured 86 -> 9 t/s generation); spend KV memory, not throughput |
+| Non-OCR model on **CUDA / anything else** | `cache-type-v = cache-type-k` — a mixed pair falls off the fused FlashAttention kernel (measured 86 -> 9 t/s generation); spend KV memory, not throughput. **Matching is necessary, not sufficient**: matched q4_1/q4_1 also collapses (pp ~30 vs 1989 t/s, Qwen3.8-27B 2026-08-15) — only q8_0/q8_0 and q4_0/q4_0 are throughput-verified pairs; probe any other pair before emitting it |
 | VRAM still tight after other adjustments | shrink `ctx-size` further — don't push either KV type below its floor, and don't reach for `n-cpu-moe` |
 | MoE model, native ctx doesn't fit | shrink `ctx-size` until it fits fully on the GPU; `n-cpu-moe` only with `--allow-cpu-moe` (PCIe round trip in the generation path) |
 | Non-OCR model (**agentic default**) | `parallel = 1` — one active conversation gets the full `ctx-size` and full throughput instead of being split across slots |
