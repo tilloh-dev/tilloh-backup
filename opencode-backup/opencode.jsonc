@@ -26,6 +26,10 @@
         "apiKey": "no-key"
       },
       "models": {
+        "Qwen3.8-27B": {
+          "name": "Qwen3.8 27B Dense MTP",
+          "modalities": {"input": ["text", "image", "video"], "output": ["text"]}
+        },
         "Qwen3.6-27B": {
           "name": "Qwen3.6 27B Dense MTP",
           "modalities": {"input": ["text"], "output": ["text"]}
@@ -65,9 +69,13 @@
         "Muse-Glimmer-30B": {
           "name": "Muse Glimmer 30B Dense Agentic + DFlash",
           "modalities": {"input": ["text", "image"], "output": ["text"]}
+        },
+        "Nemotron-3.5-Lightning-30B-A3B": {
+          "name": "Nemotron 3.5 Lightning 30B-A3B Mamba2 Hybrid",
+          "modalities": {"input": ["text"], "output": ["text"]}
         }
       },
-      "whitelist": ["Qwen3.6-27B", "Qwen3.6-35B-A3B", "gemma-4-26B-A4B", "Ornith-1.0-9B", "Ornith-1.0-35B", "Qwen-AgentWorld-35B-A3B", "gemma-4-31B", "Laguna-XS-2.1", "Ternary-Bonsai-27B", "Muse-Glimmer-30B"]
+      "whitelist": ["Qwen3.8-27B", "Qwen3.6-27B", "Qwen3.6-35B-A3B", "gemma-4-26B-A4B", "Ornith-1.0-9B", "Ornith-1.0-35B", "Qwen-AgentWorld-35B-A3B", "gemma-4-31B", "Laguna-XS-2.1", "Ternary-Bonsai-27B", "Muse-Glimmer-30B", "Nemotron-3.5-Lightning-30B-A3B"]
     },
     "hermine": {
       "npm": "@ai-sdk/openai-compatible",
@@ -77,6 +85,10 @@
         "apiKey": "no-key"
       },
       "models": {
+        "Qwen3.8-27B": {
+          "name": "Qwen3.8 27B Dense MTP",
+          "modalities": {"input": ["text", "image", "video"], "output": ["text"]}
+        },
         "Qwen3.6-27B": {
           "name": "Qwen3.6 27B Dense MTP",
           "modalities": {"input": ["text"], "output": ["text"]}
@@ -116,9 +128,13 @@
         "Muse-Glimmer-30B": {
           "name": "Muse Glimmer 30B Dense Agentic + DFlash",
           "modalities": {"input": ["text", "image"], "output": ["text"]}
+        },
+        "Nemotron-3.5-Lightning-30B-A3B": {
+          "name": "Nemotron 3.5 Lightning 30B-A3B Mamba2 Hybrid",
+          "modalities": {"input": ["text"], "output": ["text"]}
         }
       },
-      "whitelist": ["Qwen3.6-27B", "Qwen3.6-35B-A3B", "gemma-4-26B-A4B", "Ornith-1.0-9B", "Ornith-1.0-35B", "Qwen-AgentWorld-35B-A3B", "gemma-4-31B", "Laguna-XS-2.1", "Ternary-Bonsai-27B", "Muse-Glimmer-30B"]
+      "whitelist": ["Qwen3.8-27B", "Qwen3.6-27B", "Qwen3.6-35B-A3B", "gemma-4-26B-A4B", "Ornith-1.0-9B", "Ornith-1.0-35B", "Qwen-AgentWorld-35B-A3B", "gemma-4-31B", "Laguna-XS-2.1", "Ternary-Bonsai-27B", "Muse-Glimmer-30B", "Nemotron-3.5-Lightning-30B-A3B"]
     },
     "openrouter": {
       "options": {
