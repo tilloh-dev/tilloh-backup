@@ -10,6 +10,9 @@
 # Downloads land in $LLAMA_MODELS_DIR (OUTSIDE this repo) and are never committed.
 
 # --- Your models -----------------------------------------------------------
+unsloth/Qwen3.8-27B-GGUF              | Qwen3.8-27B-UD-Q4_K_M.gguf         | Qwen3.8-27B
+unsloth/Qwen3.8-27B-GGUF              | Qwen3.8-27B-UD-Q4_K_XL.gguf         | Qwen3.8-27B
+unsloth/Qwen3.8-27B-GGUF              | mmproj-F16.gguf                    | Qwen3.8-27B
 unsloth/Qwen3.6-27B-MTP-GGUF          | Qwen3.6-27B-IQ4_XS.gguf            | Qwen3.6-27B
 unsloth/Qwen3.6-35B-A3B-MTP-GGUF      | Qwen3.6-35B-A3B-UD-IQ4_XS.gguf     | Qwen3.6-35B-A3B
 unsloth/gemma-4-26B-A4B-it-qat-GGUF   | gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf | gemma-4-26B-A4B
@@ -18,19 +21,14 @@ unsloth/gemma-4-31B-it-qat-GGUF       | gemma-4-31B-it-qat-UD-Q4_K_XL.gguf | gem
 unsloth/gemma-4-31B-it-qat-GGUF       | mtp-gemma-4-31B-it.gguf            | gemma-4-31B
 bartowski/Laguna-XS-2.1-GGUF          | Laguna-XS-2.1-IQ4_XS.gguf          | Laguna-XS-2.1
 unsloth/Qwen-AgentWorld-35B-A3B-GGUF  | Qwen-AgentWorld-35B-A3B-UD-IQ4_XS.gguf | Qwen-AgentWorld-35B-A3B
-deepreinforce-ai/Ornith-1.0-9B-GGUF   | ornith-1.0-9b-Q8_0.gguf            | Ornith-1.0-9B
+ornith-ai/Ornith-1.5-35B-A3B-GGUF     | Ornith-1.5-35B-Q4_K_M.gguf         | Ornith-1.5-35B-A3B
 deepreinforce-ai/Ornith-1.0-35B-GGUF  | ornith-1.0-35b-Q4_K_M.gguf         | Ornith-1.0-35B
+deepreinforce-ai/Ornith-1.0-9B-GGUF   | ornith-1.0-9b-Q8_0.gguf            | Ornith-1.0-9B
 prism-ml/Ternary-Bonsai-27B-gguf      | Ternary-Bonsai-27B-Q2_g64.gguf     | Ternary-Bonsai-27B
 meta-models/Muse-Glimmer-30B-GGUF     | muse-glimmer-30B-kquant-17gb.gguf  | Muse-Glimmer-30B
 meta-models/Muse-Glimmer-30B-GGUF     | dflash-kquant.gguf                  | Muse-Glimmer-30B
 meta-models/Muse-Glimmer-30B-GGUF     | mmproj-kquant.gguf                 | Muse-Glimmer-30B
-# IQ4_NL, not a K-/IQ-superblock quant by choice: expert_feed_forward_length is
-# 1856 (not a multiple of 256), so 256-block types cannot represent the expert
-# tensors and fall back anyway. The MTP drafter (mtp-*-Q8_0.gguf) is NOT listed:
-# it loads, but measured 2.25x slower — see AGENTS.md.
 bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF | NVIDIA-Nemotron-3.5-Lightning-30B-A3B-IQ4_NL.gguf | Nemotron-3.5-Lightning-30B-A3B
-unsloth/Qwen3.8-27B-GGUF              | Qwen3.8-27B-IQ4_XS.gguf            | Qwen3.8-27B
-unsloth/Qwen3.8-27B-GGUF              | mmproj-F16.gguf                    | Qwen3.8-27B
 
 # --- Optional: Qwen fixed chat template (referenced by presets) ------------
 # froggeric/Qwen-Fixed-Chat-Templates | chat_template.jinja | ../templates
