@@ -15,7 +15,6 @@ tooling/
 │   ├── models/<model-ID>.md         # Per-model preset rationale + measurements
 │   ├── llama-operations.md          # Cross-model measurements, hermine hardware
 │   ├── llama-recommend-sh.md        # recommend.sh rewrite history
-│   ├── freetoken-operations.md      # FreeToken Gate-0 findings, hermine fit, measurements
 │   └── opencode.md                  # Guard, permissions, provider findings
 ├── .opencode/skills/                # Project-local skills (OpenCode reads these)
 │   ├── llama-preset/                # models.ini section generator + recommend.sh
@@ -43,16 +42,6 @@ tooling/
 │   ├── presets/models.example.ini   # Router preset template
 │   ├── PLAN.md / README.md          # Design + usage
 │   └── vendor/ cache/               # Binaries + downloads (gitignored)
-├── freetoken/                       # FreeToken MoE serving engine (WSL2, CUDA-only)
-│   ├── bootstrap.sh                 # uv venv + freetoken[accel] + CUDA gate + ft bench bw
-│   ├── download-model.sh            # Snapshot HF checkpoint DIRS to $FT_MODELS_DIR
-│   ├── server.sh                    # ft serve for one preset/model (no router)
-│   ├── config-load.sh               # env > config.env > config.env.example (no .ps1)
-│   ├── config.env.example           # Port/paths/default preset (copy to config.env)
-│   ├── models.list                  # HF repo snapshot manifest (repo | subdir)
-│   ├── presets/*.env                # One env per model (Qwen3.6-35B-A3B, gpt-oss-120b)
-│   ├── README.md                    # Usage + WSL-only rationale
-│   └── .venv/                       # FreeToken install (gitignored)
 └── fresh_linux/debian-based/
     └── bootstrap-guide.md           # New machine setup checklist
 ```
@@ -65,7 +54,6 @@ tooling/
 | OpenCode config | `cd opencode-backup && bash install.sh` |
 | Claude Code config | `cd claude-backup && bash install.sh` |
 | Local llama.cpp (Vulkan) | `cd llama.cpp && cp config.env.example config.env && bash bootstrap.sh` |
-| FreeToken (WSL2/CUDA) | `cd freetoken && cp config.env.example config.env && bash bootstrap.sh` |
 
 - `bashrc-backup/install.bash` deletes the `# CUSTOM START` … `# CUSTOM END` block from `~/.bashrc`, appends the new block at the end, then calls `exec bash -l` to reload the shell.
 - `opencode-backup/install.sh` copies `opencode.jsonc` to `~/.config/opencode/opencode.jsonc`, `AGENTS.md` to `~/.config/opencode/AGENTS.md`, any `agents/*.md` to `~/.config/opencode/agents/`, and `skills/*/` to `~/.config/opencode/skills/` (creates dirs if needed). Add-only: existing agents/skills/plugins from other sources are kept. It ships **no plugin** — the bash guard comes from `stadtwerk_ai_config` (see below).
@@ -147,7 +135,7 @@ doc file; this file only carries the one-line summary.
   - `Ternary-Bonsai-27B` — ternary 1.71 bpw Qwen3.6-27B; 262144 / q8_0 / `ngram-mod`; only the `Q2_g64` pack loads on stock llama.cpp, DSpark drafter closed by official-builds policy.
   - `Muse-Glimmer-30B` — dense 30B agentic multimodal; 131072 / q8_0 / `draft-dflash,ngram-mod` **n-max 16**, mmproj resident on GPU.
   - `Nemotron-3.5-Lightning-30B-A3B` — Mamba-2 MoE; 262144 / q8_0 / `ngram-mod`; **MTP drafter measured 2.25× slower — do not re-add without re-measuring.**
-- Enabled providers: `lieselotte`, `hermine`, `freetoken`, `anthropic`, `openrouter` (a sixth, `elektronengehirn`, appeared in `opencode.jsonc` from outside this session and is undocumented here). `freetoken` is the FreeToken engine on hermine (`http://hermine:1919/v1`) — see the FreeToken section below.
+- Enabled providers: `lieselotte`, `hermine`, `anthropic`, `openrouter` (a fifth, `elektronengehirn`, appeared in `opencode.jsonc` from outside this session and is undocumented here)
 - `openrouter` is the built-in OpenRouter provider (models preloaded from Models.dev); its API key is read from the `OPENROUTER_API_KEY` env var via `"apiKey": "{env:OPENROUTER_API_KEY}"` instead of `/connect`
 - Plugin (npm): `opencode-claude-auth@latest`; `share: disabled`
 - Bash guard: shipped by `stadtwerk_ai_config` (`command-guard.js` → `~/.config/opencode/plugin/`), deny-only, normalises and recursively splits commands before matching. Health signal: the "Löschschutz aktiv" toast plus `echo guard-selftest`, which must be blocked. Known false positive: multi-target `rm -f`. Full rule list and analysis: `docs/opencode.md`.
@@ -179,19 +167,6 @@ doc file; this file only carries the one-line summary.
 - **`presets/models.ini` is kept comment-free — the user deletes `#` comments from it on sight.** Rationale goes into `models.example.ini` (tracked, comment-friendly) and the model's file under `docs/models/`. Discovery story: `docs/llama-operations.md`.
 - OpenCode: the local `lieselotte` provider `baseURL` is `http://127.0.0.1:8081/v1`; the remote `hermine` provider points at `http://hermine:8081/v1`.
 - Skill `.opencode/skills/llama-preset/` (`scripts/recommend.sh`) generates/updates `models.ini` sections from measured hardware plus agentic defaults; substantially rewritten 2026-08-04 after a dozen real defects found by running it on this machine. Read `docs/llama-recommend-sh.md` before changing the script — it records each defect and the validation run. Known gap: it misses embedded MTP heads whose repo name lacks `-MTP-` (bit `Qwen3.8-27B`).
-
-## FreeToken config notes
-
-- **FreeToken is a separate MoE serving engine, not llama.cpp.** Python package (`ft` CLI), serves OpenAI **and** Anthropic APIs on port 1919, keeps MoE experts in host RAM with an LRU expert cache on the GPU (`offload`) or splits CPU/PCIe (`hybrid`). Loads HF safetensors **directories** directly (GGUF only for Gemma-4). Tooling lives in `freetoken/`, a sibling of `llama.cpp/`; **read `docs/freetoken-operations.md` before touching it** — it records Gate-0 findings and the fit numbers.
-- **Gate 0 (verified 2026-08-25): FreeToken is Linux-only → on hermine it runs in WSL2, never native Windows.** PyPI ships only `manylinux` wheels, `triton` is gated to `platform_system=="Linux"`, `docs/install.md` requires *Linux x86_64, driver r580+, CUDA 13*. So `freetoken/` is **bash-only** — no `.ps1` half like `llama.cpp/`. This was decided against the stated native-Windows preference because the evidence is unambiguous; do not "add Windows support" back.
-- Prereq the driver alone does not cover: a **CUDA 13 toolkit with `nvcc` on PATH** (FreeToken JIT-compiles kernels). Absent in WSL as of 2026-08-25; `bootstrap.sh` gates on it and prints the install commands.
-- `bootstrap.sh` = uv venv (`freetoken/.venv`, gitignored) + `uv pip install "freetoken[accel]"` + CUDA gate + one `ft bench bw` (per-GPU profile at `~/.cache/freetoken/benchbw/<gpu-uuid>.json`, read by `--moe-backend auto`). No `vendor/` tarball.
-- **No router.** One `ft serve` = one model on one port. `presets/*.env` are per-model flag sets sourced by `server.sh`, not a live multi-model preset like `models.ini`. Run two models by giving them different ports.
-- `download-model.sh` snapshots a **whole HF repo** into `$FT_MODELS_DIR/<subdir>` (default `~/.local/share/freetoken/models`, outside the repo), not a single `.gguf`. Manifest `models.list` is `repo | subdir | exclude_globs`. **`openai/gpt-oss-120b` ships the weights three times** — root transformers safetensors (~61 GB, what FreeToken loads) + `original/` (raw) + `metal/` (Apple) = 183 GB; the manifest excludes `original/* metal/*` so a snapshot is 61 GB. Measured 2026-08-25.
-- **Live run 2026-08-25 (reached the blocker, did not serve a token):** venv install works with **no CUDA toolkit** (uv builds a 3.12 venv, `ft` = freetoken 0.1.2). `ft serve` on Qwen3.6-35B-A3B-FP8 **initialises fine without nvcc** (auto-picks attention `fi`, MoE `offload`, cache `hybrid_radix`, parser `qwen3_coder`), then **dies at weight load with `cudaHostRegister failed for 0.2 GiB`**. Two **sudo-gated** prerequisites remain, neither doable without the user's password: (1) **memlock** — WSL defaults to 64 MB soft+hard; offload pins expert banks and there is no pageable fallback (`moe/offload_cache.py:281`), so raise it via `/etc/security/limits.conf` (`* soft/hard memlock unlimited`) + reopen WSL; (2) **CUDA 13 toolkit / `CUDA_HOME`** for the PCIe-gather kernel (`ft bench bw` reports "Could not find CUDA installation"). `bootstrap.sh` checks both and warns (nvcc is no longer a hard gate). Full numbers + the `ft bench bw` ceilings: `docs/freetoken-operations.md`.
-- Configured models (2026-08-25, sizes **computed** not measured): `Qwen/Qwen3.6-35B-A3B-FP8` (~35 GB, safe — fits 48 GB RAM, `offload`) and `openai/gpt-oss-120b` (~63 GB MXFP4, **marginal** — experts ~58 GB must sit in RAM; needs `.wslconfig memory=44GB` and may still spill/OOM). Verify with a real `ft serve` + `ft ctl stats` before trusting either. **DeepSeek-V4-Flash was dropped**: FP8 ~300 GB is impossible on 48 GB RAM, and its unsloth GGUF is a llama.cpp path (deepseek4 arch), not FreeToken.
-- OpenCode: manual `freetoken` provider in `opencode-backup/opencode.jsonc` (`baseURL http://hermine:1919/v1`, models `Qwen3.6-35B-A3B`, `gpt-oss-120b`), added to `enabled_providers`. `ft launch opencode` is deliberately **not** used — it rewrites the live config instead of the repo backup.
-- `.gitignore` excludes `freetoken/.venv/` and `freetoken/config.env`; models live outside the repo.
 
 ## Conventions
 

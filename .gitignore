@@ -8,7 +8,3 @@ llama.cpp/config.env
 llama.cpp/config.ps1
 llama.cpp/presets/models.ini
 llama.cpp/**/*.gguf
-
-# freetoken: venv and machine-specific config (models live outside the repo)
-freetoken/.venv/
-freetoken/config.env
