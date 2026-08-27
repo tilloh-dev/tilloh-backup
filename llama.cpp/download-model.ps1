@@ -13,6 +13,7 @@
     .\download-model.ps1 <repo_id> <filename> [dest_subdir]   # one file
     .\download-model.ps1 -All                                 # everything in models.list
     .\download-model.ps1 -List                                # show manifest
+    .\download-model.ps1 -All -ModelsDir D:\models            # override target dir
 #>
 [CmdletBinding(DefaultParameterSetName = 'File')]
 param(
@@ -21,7 +22,10 @@ param(
     [Parameter(ParameterSetName = 'Help')] [switch]$Help,
     [Parameter(ParameterSetName = 'File', Position = 0)] [string]$RepoId,
     [Parameter(ParameterSetName = 'File', Position = 1)] [string]$FileName,
-    [Parameter(ParameterSetName = 'File', Position = 2)] [string]$DestSubdir
+    [Parameter(ParameterSetName = 'File', Position = 2)] [string]$DestSubdir,
+    # Optional override for the target model directory. When omitted, falls back
+    # to $LLAMA_MODELS_DIR (config.ps1 / env) and then the default location.
+    [Parameter()] [string]$ModelsDir
 )
 
 $ErrorActionPreference = 'Stop'
@@ -37,6 +41,8 @@ if (Test-Path "$ScriptDir\config.ps1") {
     . ([ScriptBlock]::Create((Get-Content -Raw -LiteralPath "$ScriptDir\config.ps1.example")))
 }
 
+# Explicit -ModelsDir wins; otherwise keep using $LLAMA_MODELS_DIR, then default.
+if ($ModelsDir) { $LLAMA_MODELS_DIR = $ModelsDir }
 if (-not $LLAMA_MODELS_DIR) { $LLAMA_MODELS_DIR = "$env:LOCALAPPDATA\llama.cpp\models" }
 $Manifest = Join-Path $ScriptDir 'models.list'
 

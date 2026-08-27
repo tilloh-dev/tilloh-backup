@@ -11,13 +11,17 @@
     .\server.ps1                       # Router mode (multi-model) via $LLAMA_PRESET
     .\server.ps1 model.gguf [args]     # Single model; extra args pass through
     .\server.ps1 -List                 # List GGUF files under $LLAMA_MODELS_DIR
+    .\server.ps1 -ModelsDir D:\models  # Override the model directory for this run
 #>
 [CmdletBinding(DefaultParameterSetName = 'Serve')]
 param(
     [Parameter(ParameterSetName = 'List')] [switch]$List,
     [Parameter(ParameterSetName = 'Help')] [switch]$Help,
     [Parameter(ParameterSetName = 'Serve', Position = 0)] [string]$Model,
-    [Parameter(ParameterSetName = 'Serve', ValueFromRemainingArguments = $true)] [string[]]$ExtraArgs
+    [Parameter(ParameterSetName = 'Serve', ValueFromRemainingArguments = $true)] [string[]]$ExtraArgs,
+    # Optional override for the model directory. When omitted, falls back to
+    # $LLAMA_MODELS_DIR (config.ps1 / env) and then the default location.
+    [Parameter()] [string]$ModelsDir
 )
 
 $ErrorActionPreference = 'Stop'
@@ -32,6 +36,8 @@ if (Test-Path "$ScriptDir\config.ps1") {
     . ([ScriptBlock]::Create((Get-Content -Raw -LiteralPath "$ScriptDir\config.ps1.example")))
 }
 
+# Explicit -ModelsDir wins; otherwise keep using $LLAMA_MODELS_DIR, then default.
+if ($ModelsDir) { $LLAMA_MODELS_DIR = $ModelsDir }
 if (-not $LLAMA_MODELS_DIR) { $LLAMA_MODELS_DIR = "$env:LOCALAPPDATA\llama.cpp\models" }
 if (-not $LLAMA_HOST)       { $LLAMA_HOST = '127.0.0.1' }
 if (-not $LLAMA_PORT)       { $LLAMA_PORT = '8081' }
