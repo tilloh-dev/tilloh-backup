@@ -274,6 +274,67 @@ Each `[section]` is a model; the header is the name clients send in the OpenAI
 absolute and point inside `$LLAMA_MODELS_DIR`. The committed `models.example.ini`
 uses `/home/USER` placeholders; replace them when you copy it to `models.ini`.
 
+## RPC: sharing lieselotte's 7900 XTX with another host
+
+`ggml-rpc-server` (shipped in the same release tarball as `llama-server`) hands
+one local device to a `llama-server` running elsewhere, which then offloads part
+or all of a model onto it via `--rpc`. On lieselotte the discrete card is
+`Vulkan0` and the i9-14900K's iGPU is `Vulkan1`, so naming the device is what
+keeps the exposed GPU from being the wrong one:
+
+```console
+$ vendor/llama.cpp/llama-b10621/llama-server --list-devices
+Available devices:
+  Vulkan0: AMD Radeon RX 7900 XTX (RADV NAVI31) (24560 MiB, 23537 MiB free)
+  Vulkan1: Intel(R) Graphics (RPL-S) (35941 MiB, 32347 MiB free)
+```
+
+Expose the 7900 XTX:
+
+```bash
+vendor/llama.cpp/llama-b10621/ggml-rpc-server -H 0.0.0.0 -p 50052 -d Vulkan0 -c
+```
+
+| Flag | Meaning |
+|------|---------|
+| `-H 0.0.0.0` | bind on every interface so remote hosts can reach it (default `127.0.0.1`, i.e. local only) |
+| `-p 50052` | listen port (also the default) |
+| `-d Vulkan0` | the device to hand out — the 7900 XTX, **not** the iGPU |
+| `-c` | enable the server-side local file cache (`--help`: *enable local file cache*) |
+| `-t N` | CPU threads, only relevant when exposing the CPU device (default: 16) |
+
+The binary finds its own `libggml-*.so` next to it, so it needs no
+`LD_LIBRARY_PATH` and can be started with a relative path from `llama.cpp/`.
+The `llama-b10621` path segment is the installed build and changes whenever
+`bootstrap.sh` picks up a newer release — resolve it instead of hardcoding it:
+
+```bash
+"$(find vendor -name ggml-rpc-server -type f | head -n1)" -H 0.0.0.0 -p 50052 -d Vulkan0 -c
+```
+
+**No authentication, no encryption.** `-H 0.0.0.0` opens the device to everyone
+who can reach the port, and llama.cpp's RPC protocol has no auth of any kind —
+keep it on a trusted LAN (or an SSH tunnel / WireGuard link) and never on a
+port forwarded from the internet.
+
+### Client side
+
+The consuming machine passes `--rpc host:port` (env: `LLAMA_ARG_RPC`), e.g.
+`--rpc lieselotte:50052`; several servers can be given comma-separated. In
+`presets/models.ini` this is the key `rpc = lieselotte:50052`.
+
+Two things worth knowing about the client view, both measured on b10621:
+
+- The remote device shows up as `RPC0` and reports the remote card's full VRAM
+  (`RPC0 : 127.0.0.1:50052 (24560 MiB, 23532 MiB free)`), but **only** in the
+  `device_info` block at `-lv 5` — a plain `--list-devices` does *not* list RPC
+  devices, so its absence there is not a sign that the connection failed.
+- With `--rpc` set, the local GPU stays in the pool and the model is split
+  across both. A loopback check with `Unlimited-OCR-Q8_0` (13 layers, `-ngl 99`)
+  landed `RPC0[127.0.0.1:50052] model buffer size = 1455.66 MiB` next to
+  `Vulkan0 model buffer size = 1352.98 MiB`. To place a model on the remote card
+  only, restrict the device list with `--device RPC0` (untested here).
+
 ## OpenCode integration
 
 The `llama.cpp` provider in `opencode-backup/opencode.jsonc` currently points at

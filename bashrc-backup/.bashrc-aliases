@@ -3,7 +3,7 @@ complete -C '/usr/local/bin/aws_completer' aws
 alias awslogin="aws sso login --profile c4-sso"
 
 # agentic coding
-alias oc='opencode'
+alias claudelocal="claude --settings ~/.claude/settings.local.json"
 
 # flux
 alias flux1='flux reconcile source git flux-system -n flux-system'
