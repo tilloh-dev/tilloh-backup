@@ -30,8 +30,8 @@ tooling/
 │   ├── skills/                      # OpenCode skills, incl. commit-push (agents/ too if present)
 │   └── install.sh                   # Copies config + AGENTS.md + skills/ to ~/.config/opencode/
 ├── claude-backup/
-│   ├── .claude/                     # settings.json, mcp.json, commands/, skills/
-│   └── install.sh                   # Copies to ~/.claude/
+│   ├── .claude/skills/              # Global Claude Code skills and references
+│   └── install.sh                   # Add-only install into ~/.claude/
 ├── llama.cpp/                       # Local LLM inference (prebuilt Vulkan llama.cpp)
 │   ├── bootstrap.sh                 # Fetch+extract prebuilt Vulkan release into vendor/
 │   ├── download-model.sh            # Pull GGUF(s) from HuggingFace to $LLAMA_MODELS_DIR
@@ -57,7 +57,7 @@ tooling/
 
 - `bashrc-backup/install.bash` deletes the `# CUSTOM START` … `# CUSTOM END` block from `~/.bashrc`, appends the new block at the end, then calls `exec bash -l` to reload the shell.
 - `opencode-backup/install.sh` copies `opencode.jsonc` to `~/.config/opencode/opencode.jsonc`, `AGENTS.md` to `~/.config/opencode/AGENTS.md`, any `agents/*.md` to `~/.config/opencode/agents/`, and `skills/*/` to `~/.config/opencode/skills/` (creates dirs if needed). Add-only: existing agents/skills/plugins from other sources are kept. It ships **no plugin** — the bash guard comes from `stadtwerk_ai_config` (see below).
-- `claude-backup/install.sh` copies `settings.json`, `settings.local.json`, `mcp.json`, `commands/`, and `skills/` into `~/.claude/`. Note: `settings.local.json` is in `.gitignore` and won't be present in a fresh clone — the script will fail on that step; ignore or create an empty file first.
+- `claude-backup/install.sh` merges all bundled skills into `~/.claude/skills/`: unrelated skills and extra files are kept, while files under the same bundled skill path are updated. It copies the gitignored `settings.local.json` with mode `0600` when present and skips it on a fresh clone. The installer resolves paths relative to itself, so it can be run from any directory.
 
 ## Key aliases (after install)
 
@@ -144,9 +144,8 @@ doc file; this file only carries the one-line summary.
 
 ## Claude Code config notes
 
-- MCP server: `chrome-devtools` (local via `npx chrome-devtools-mcp@latest`)
-- Custom commands: `claude-backup/.claude/commands/commit-push.md`
-- Skills: `c4-devops-ticket` (Jira ticket creation for DO project)
+- Skills: `commit-push`, `grill-me`, and `docs`.
+- `docs` creates or revises concise documentation for GitHub Markdown, Confluence Cloud, and AFFiNE. Its `SKILL.md` stays compact; document-type, platform, and accessible-SVG guidance lives in references loaded only when needed. The skill is available automatically for matching tasks and explicitly as `/docs`.
 
 ## llama.cpp config notes
 
