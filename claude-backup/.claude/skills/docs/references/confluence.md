@@ -27,12 +27,27 @@ harm readability.
 
 - Link the specific page or heading a reader needs. Use explicit anchors only
   when stable deep links are required.
-- Before uploading, verify that the author may add attachments and that the SVG
-  fits the tenant's current attachment-size limit.
-- Upload SVGs as page attachments and embed them next to the text they clarify.
-- Set descriptive alt text and a short caption. Confirm both the attachment and
-  rendered image after publishing.
-- Do not assume Mermaid support. It normally requires a Marketplace app.
+- Heading `id` attributes do not survive. Do not write same-page anchor links.
+- The available API cannot create attachments. Never plan a diagram around
+  uploading one.
+- Embed an SVG as a base64 data URI:
+  `<img width="760" alt="..." src="data:image/svg+xml;base64,...">`.
+  Confluence stores it as `<ac:image><ri:url/></ac:image>` and renders it with
+  no attachment and no external request.
+- Set `width` and `height` on the SVG root for the intrinsic size, and `width`
+  on the `<img>` for the layout size. Inline a minified copy, keep a readable
+  source file, and name where that source lives.
+- Base64 is about 1.34x the file size. Keep the SVG small enough that it does
+  not dominate the page body.
+- Three methods do not work: inline `<svg>` is rejected by the format; an
+  external `src` renders only from a publicly reachable host, so a private
+  repository's raw URL shows "preview not available"; Mermaid needs a
+  Marketplace app, and where one is installed it may still fail to load and
+  leave an error block in the page.
+- `<img>` has no native caption. Put a one-sentence caption in an `<em>`
+  paragraph directly below it.
+- Alt text is stored as `ac:alt` but does not appear in a markdown read-back.
+  Verify it in `html` format.
 
 ## Writes
 
@@ -40,7 +55,7 @@ A clear create or update request authorizes direct publication. Read the current
 page version immediately before an API update. If a concurrent edit causes a
 conflict, reread and reconcile instead of blindly retrying. After writing,
 reopen the page and verify its title, hierarchy, panels, links, code snippets,
-attachments and diagram placement.
+embedded images and diagram placement.
 
 If the available API cannot represent a required native element, use the
 closest semantic fallback and state the limitation. Do not claim that pasted

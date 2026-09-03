@@ -33,8 +33,11 @@ Create the shortest complete document a reader can understand and use.
    `${CLAUDE_SKILL_DIR}/assets/diagram-template.svg` when no project style
    exists. Create an accessible SVG; never use Mermaid.
 7. **Verify** — check facts, commands, required information, links, hierarchy
-   and rendering. After an external write, read back the actual page and
-   confirm that uploaded diagrams are embedded.
+   and rendering. After an external write, read the page back and confirm the
+   diagram node's position, size and alt text. You cannot see rendered output;
+   when the render itself is in doubt, publish a throwaway draft with the
+   candidate methods and ask the author what displays. No delete operation
+   exists, so report the draft as a leftover to clean up.
 
 ## Rules
 

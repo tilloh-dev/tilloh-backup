@@ -16,6 +16,8 @@ an obvious linear sequence or decoration.
 
 - Use a descriptive `viewBox`, `role="img"`, `<title>` and `<desc>`.
 - Use a self-contained SVG with no external fonts, scripts or remote assets.
+- Keep the file small when the target platform inlines it. Strip comments, and
+  put long descriptions in the platform's alt text rather than in `<desc>`.
 - Default to a neutral solid canvas that remains legible in light and dark page
   themes.
 - Reuse verified project colors when they retain sufficient contrast.
