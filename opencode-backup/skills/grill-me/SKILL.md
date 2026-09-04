@@ -1,10 +1,10 @@
 ---
 name: grill-me
-description: Interview the user relentlessly about a plan or design until reaching shared understanding, resolving each branch of the decision tree. Use when user wants to stress-test a plan, get grilled on their design, or mentions "grill me".
+description: Stelle beharrlich Fragen zu einem Plan oder Design, bis ein gemeinsames Verständnis erreicht und jeder Zweig des Entscheidungsbaums geklärt ist. Nutze den Skill, wenn Nutzer einen Plan stress-testen, sich zu ihrem Design grillen lassen oder „grill me“ erwähnen.
 ---
 
-Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.
+Stelle mir beharrlich Fragen zu jedem Aspekt dieses Plans, bis wir ein gemeinsames Verständnis erreicht haben. Gehe jeden Zweig des Entscheidungsbaums entlang und löse Abhängigkeiten zwischen Entscheidungen nacheinander auf. Gib für jede Frage deine empfohlene Antwort an.
 
-Ask the questions one at a time.
+Stelle die Fragen einzeln.
 
-If a question can be answered by exploring the codebase, explore the codebase instead.
+Wenn eine Frage durch Erkundung der Codebasis beantwortet werden kann, erkunde die Codebasis stattdessen.
