@@ -50,6 +50,9 @@ if (Test-Path "$ScriptDir\config.ps1") {
     . ([ScriptBlock]::Create((Get-Content -Raw -LiteralPath "$ScriptDir\config.ps1.example")))
 }
 
+# Env vars beat config.ps1 (same precedence as the bash side's config-load.sh).
+if ($env:LLAMA_VERSION) { $LLAMA_VERSION = $env:LLAMA_VERSION }
+if ($env:LLAMA_CUDA)    { $LLAMA_CUDA = $env:LLAMA_CUDA }
 if (-not $LLAMA_VERSION) { $LLAMA_VERSION = 'latest' }
 if (-not $LLAMA_CUDA)    { $LLAMA_CUDA = '12.4' }
 $VendorDir = Join-Path $ScriptDir 'vendor\llama.cpp'
@@ -59,12 +62,29 @@ $Marker    = Join-Path $ScriptDir 'vendor\.llama-version-win'
 function Write-Step($msg) { Write-Host $msg -ForegroundColor Yellow }
 
 function Resolve-Tag {
-    if ($LLAMA_VERSION -eq 'latest') {
-        $rel = Invoke-RestMethod -Uri 'https://api.github.com/repos/ggml-org/llama.cpp/releases/latest' `
-            -Headers @{ 'User-Agent' = 'tooling-llama-bootstrap' }
-        return $rel.tag_name
+    if ($LLAMA_VERSION -ne 'latest') { return $LLAMA_VERSION }
+
+    # ggml-org publishes the per-commit build tags (b<number>) that carry the
+    # binaries as *prereleases*. /releases/latest therefore returns a version
+    # tag (e.g. v0.3.0) whose only asset is nightly-tag.txt — a pointer to the
+    # build tag that does have the zips. Follow that pointer.
+    $hdr = @{ 'User-Agent' = 'tooling-llama-bootstrap' }
+    $api = 'https://api.github.com/repos/ggml-org/llama.cpp'
+
+    $rel = Invoke-RestMethod -Uri "$api/releases/latest" -Headers $hdr
+    if ($rel.tag_name -match '^b[0-9]+$') { return $rel.tag_name }
+
+    $ptr = $rel.assets | Where-Object { $_.name -eq 'nightly-tag.txt' } | Select-Object -First 1
+    if ($ptr) {
+        $tag = "$(Invoke-RestMethod -Uri $ptr.browser_download_url -Headers $hdr)".Trim()
+        if ($tag -match '^b[0-9]+$') { return $tag }
     }
-    return $LLAMA_VERSION
+
+    # Fallback: newest prerelease whose tag looks like a build tag.
+    $all = Invoke-RestMethod -Uri "$api/releases?per_page=20" -Headers $hdr
+    $b = $all | Where-Object { $_.tag_name -match '^b[0-9]+$' } | Select-Object -First 1
+    if ($b) { return $b.tag_name }
+    return $null
 }
 
 function Get-Arch {

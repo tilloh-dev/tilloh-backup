@@ -43,3 +43,82 @@ The section now has a deliberate twin for real-scenario A/B testing instead of a
 **q4_1 KV is disqualified on CUDA despite winning the KLD ladder.** It measured KLD 0.0074 (between q8_0's 0.0039 and q4_0's 0.0099) but generation drops to 30.5 t/s short (q4_0: 43.2) and prompt processing collapses to ~30 t/s vs q4_0's 1989 t/s (~65x) - a 103k prompt was 22 % done after 13 minutes and hit the client timeout. VRAM also lands oddly lower (20618 vs 21241 MiB), consistent with a different, non-fused kernel path. Sharpened rule: **matching K and V is necessary but not sufficient on CUDA - only pairs with a fused FA path are usable, and on this build/model that is q8_0/q8_0 and q4_0/q4_0 (throughput-verified); every other pair needs its own probe before use.**
 
 **Renamed 2026-08-15 (same day):** the twins are now `[Qwen3.8-27B-small]` (ex `[Qwen3.8-27B]`) and `[Qwen3.8-27B-large]` (ex `[Qwen3.8-27B-maxctx]`) in both preset files and in the hermine OpenCode provider (models map + whitelist, live and backup). lieselotte keeps the plain `Qwen3.8-27B` ID - its GGUF and preset were never verified on that box, and renaming the OpenCode entry without touching that machine's models.ini would have broken the ID linkage. This doc file keeps the base-model name.
+
+(Note 2026-09-04: the live `models.ini` meanwhile carries the twins as `[Qwen3.8-27B-UD-Q4_K_M-200ctx-q4_0]` / `[Qwen3.8-27B-UD-Q4_K_M-150ctx-q8_0]` with `alias` keys — renamed outside any recorded session. `/v1/models` lists **section names**, not aliases, so the hermine OpenCode provider IDs `Qwen3.8-27B-small`/`-large` no longer match what the router serves — not fixed here, flagged to the user.)
+
+## RPC quality preset `[Qwen3.8-27B-UD-Q8_K_XL-260ctx-q8_0-rpc]` (2026-09-04, build 10786)
+
+Third preset, hermine-only: **UD-Q8_K_XL weights (29.3 GiB — the largest quant below BF16,
+which at 50.9 GiB exceeds the pool)** at **full native ctx 262144** with q8_0/q8_0 KV, pooled
+over RPC with lieselotte's 7900 XTX (`rpc = 192.168.1.39:50052`, both ends build 10786,
+rpc-server with `-c` — second load 31–58 s vs 2:38 cold). Devices at load: CUDA0 21506 MiB
+free, RPC0 23270 MiB free; the winning config leaves ~3.4 GiB free on CUDA0 (18674 MiB used
+incl. 671 idle baseline) and ~3.6 GiB estimated on RPC0. fit-params ladder (q8_0/q8_0, no
+drafter, MiB model+ctx+compute): 131072 → RPC0 16967 / CUDA0 17552; 196608 → 18311 / 19152;
+262144 → 19655 / 20752.
+
+**Adopted: `fit = on` + `fit-target = 1024,1024`, `spec-type = ngram-mod`, no `device` key,
+no MTP.** Measured (short 400-token probes via /completion, temp 1.0 card set, warm):
+
+| Config (all ctx 262144) | tg t/s | notes |
+|---|---|---|
+| **ngram-mod only, fit 1024,1024** | **17.4–17.5** | adopted; pp 395–407 t/s @14k prompt, tg@14k-depth 16.2 |
+| embedded draft-mtp,ngram-mod n-max 3 | 14.6–16.8 | acceptance 0.42–0.52, still net loss |
+| sidecar `MTP/mtp-Qwen3.8-27B-Q4_0.gguf` + `-devd CUDA0` | 16.2–17.2 | acceptance 0.48–0.53, neutral at best |
+| fit-target 4096,1024 (CUDA0-heavy split) | 10.5–10.8 | pp 465; split breaks RPC0 range contiguity |
+| ubatch/batch 2048 | 9.9 | pp 471 (+18 %); fit placement is ubatch-sensitive, tg collapses |
+
+**MTP at default draft settings does not survive RPC — but see the same-day speed retune
+below, which inverts this again.** At `spec-draft-n-max = 3`, `p-min` 0 (the twins' settings)
+both variants (embedded head, and the sidecar drafter pinned local exactly as the Flash-Next
+code-finding prescribes) measure at or below the 17.4 no-spec baseline despite ~0.5
+acceptance. **ngram-mod is now measured on this hardware** (first section where it is not
+just mechanism-adopted): 3/64 accepted on novel prose (harmless), **821/896 = 0.92 acceptance
+and 26.7 t/s (+53 %) on a verbatim script-rewrite probe** — the agentic file-rewrite case it
+exists for. The Flash-Next temp-1.0 acceptance collapse does not transfer here.
+
+## Speed retune (2026-09-04, same day): amortize the RPC sync tax with confidence-gated drafts
+
+User verdict on the first cut: <20 t/s is unusable for agentic work. Diagnosis by measuring
+three explicit splits (`fit = off`, `-ngl 65`; fit-params emits `-ts 35,30`):
+
+| -ts (RPC0,CUDA0) | tg t/s | CUDA0 used |
+|---|---|---|
+| 40,25 | 16.9 | 17443 |
+| 35,30 (= fit's choice, tg identical to `fit = on`) | 17.4 | 19997 |
+| 32,33 | 17.5 | 21769 |
+
+Solving the three points: **XTX ≈ 0.87 ms/block, 4090 ≈ 0.55 ms/block, plus ~10 ms/token
+fixed RPC sync cost** (18 % of the 57.5 ms token — the #22850 sync tax; TCP_NODELAY already
+set, topology-fixed). Rebalancing is therefore a dead end (±0.3 t/s), and the single-token
+decode ceiling on this pool is ~18 t/s. The lever is amortizing the fixed cost over
+multi-token verify rounds — long drafts, but only *confident* ones.
+
+**Adopted: sidecar drafter + `spec-draft-n-max = 6` + `spec-draft-p-min = 0.5`** (both are
+load-bearing, isolated same-day: n-max 6 with p-min 0 → 23.1–25.2; n-max 3 with p-min 0.5 →
+24.0–26.7; together → **26.8–32.5 prose**). n-max 10 pushes rewrites to 53 but drops prose to
+23–27 (per-draft acceptance falls); n-max 8 + p-min 0.6 drafts too rarely (22.7–25.1). p-min
+0.4 ≈ 0.5 on prose, worse on rewrites. `device-draft = CUDA0` stays mandatory (embedded MTP:
+14.6–16.8). All /completion short probes, temp-1.0 card set, warm.
+
+**`tensor-split = 38,27` instead of 35,30 buys the margin**: with the drafter aboard, 35,30
+leaves CUDA0 at 22510–22545 MiB (~500 MiB free — under the documented Windows-shell creep of
+up to ~977 MiB, a mid-session OOM risk); 38,27 lands at 21892 MiB (~1.1 GiB free) for ~8 %
+rewrite speed (44.3 vs 48.1) and unchanged prose. 36,29 rounds to the same layer boundary as
+35,30 and moves nothing.
+
+**Final numbers, router-verified (build 10786):** /completion probes prose 26.7–30.1,
+verbatim rewrite 44.3; via chat endpoint with thinking (end-to-end, comparable to the
+pre-retune 16.1–17.4 / 26.7): **prose 20.5–22.9, rewrite 36.9, tg@14k-depth 27.6 (was 16.2),
+pp 460 t/s @14k**. Thinking-phase tokens draft worse (flatter temp-1.0 distribution → p-min
+gate closes), so chat prose sits below raw-completion prose — inherent to the workload, not a
+config defect. Section carries `n-gpu-layers = 65`, `tensor-split = 38,27`, `fit = off`
+(explicit split, loud failure; `fit = on` + `fit-target = 1024,1024` measured identical tg at
+n-max 3 and remains the fallback if VRAM conditions shift).
+
+Router-verified end to end: `/v1/models` lists the section, spawn works, reasoning_content
+separates cleanly, warm tg 16.1–17.4 t/s over the router (first request after spawn ~14 t/s,
+not representative). `load-mode`/`kv-unified` deliberately absent: untested here, and the
+tested config ran without them (mmap default loaded 29.3 GiB in ~31 s warm). The mmproj stays
+on CPU (`mmproj-offload = false`), same reasoning as the twins. RPC has no auth — LAN only;
+if lieselotte's rpc-server is down the load fails loudly (intended, same as Flash-Next).

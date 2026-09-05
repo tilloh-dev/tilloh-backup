@@ -75,7 +75,7 @@ _llama_source_ps1() {
 
 _llama_load_config() {
     local dir="$1"
-    local env_models_dir="${LLAMA_MODELS_DIR:-}" env_preset="${LLAMA_PRESET:-}"
+    local env_models_dir="${LLAMA_MODELS_DIR:-}" env_preset="${LLAMA_PRESET:-}" env_version="${LLAMA_VERSION:-}"
 
     if [[ -f "$dir/config.env" ]]; then
         _llama_source_cfg "$dir/config.env"
@@ -88,5 +88,6 @@ _llama_load_config() {
 
     [[ -n "$env_models_dir" ]] && LLAMA_MODELS_DIR="$env_models_dir"
     [[ -n "$env_preset" ]] && LLAMA_PRESET="$env_preset"
+    [[ -n "$env_version" ]] && LLAMA_VERSION="$env_version"
     return 0
 }

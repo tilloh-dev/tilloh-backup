@@ -30,6 +30,13 @@ On CUDA (hermine), `cache-type-v` MUST equal `cache-type-k`. Measured 2026-08-04
 
 `spec-type` carries `ngram-mod` in **every** section of both `presets/models.ini` and `presets/models.example.ini` (12 each) — as `draft-mtp,ngram-mod` where an MTP drafter exists, as `draft-dflash,ngram-mod` for Muse-Glimmer, as bare `ngram-mod` where none does (both Ornith, Qwen-AgentWorld, Laguna) or where one exists but measured slower (Nemotron-3.5-Lightning). It needs no draft model and no VRAM, and speculative decoding is lossless, so a bad fit costs speed and never output quality. The gain is **unmeasured on both machines** — adopted from countzero's 24 GB preset on mechanism. Expect it to pay off on file-rewrite-heavy agent turns and to do nothing on novel prose, where the 48-token minimum chain length suppresses the draft entirely. `cache-ram = 16384` is set on hermine's four agentic-coding sections (both Qwen3.6, Laguna, Muse-Glimmer) and nowhere else: the default is 8192, the box has 39 GB, and the value applies **per loaded model**, so raising `models-max` above 1 multiplies it.
 
+**First measured counterexample to the ngram-mod default (2026-09-03):** on Qwen3.8-Flash-Next
+(RPC + CPU experts, card sampling `temp = 1.0`) ngram-mod drafted 192 / accepted 8 (4 %) and
+made even a verbatim-repetition prompt slower (8.2 vs 8.9 t/s), so its section carries no
+`spec-type` at all. High-temperature sampling collapses speculative acceptance — check
+`draft_n_accepted/draft_n` in the response timings before crediting any speculator on a
+temp-1.0 model. Details: `docs/models/Qwen3.8-Flash-Next.md`.
+
 ## cache-reuse is inert
 
 `cache-reuse` is **inert on this llama.cpp build (10243) — everywhere, not per model.** Every load logs `cache_reuse is not supported by this context, it will be disabled`. Measured 2026-08-05 across four architectures (gemma4 dense 31B, gemma4 MoE 26B-A4B, qwen35 dense 9B, Qwen3.6-27B) and, on the 9B, across five flag combinations: with speculative decoding, without it, `-fa off`, KV `f16` instead of `q8_0`, and `--kv-unified`. All disabled. So it is neither the hybrid-attention architecture nor speculative decoding nor FlashAttention, as was assumed twice before this was tested properly. The key is still written into every section because it costs nothing and would start working on a build that supports it — but do not credit it with anything, and do not let the llama-preset skill's description of it ("reuses cached KV for repeated prefixes across turns") be read as a statement about this machine.
@@ -37,3 +44,72 @@ On CUDA (hermine), `cache-type-v` MUST equal `cache-type-k`. Measured 2026-08-04
 ## models.ini comment policy — discovery
 
 **`presets/models.ini` is kept comment-free — the user deletes `#` comments from it on sight** (global AGENTS.md register rule: a comment must say something the keys cannot; a machine-local working file is not documentation). Any rationale a section needs goes into `models.example.ini` (tracked, comment-friendly) and the model's bullet in this file. Discovered 2026-08-15 when freshly written NOTEs vanished from `models.ini` and a server-rewrite hypothesis was disproven by the user simply saying they had deleted them; the same mechanism explains the Nemotron NOTEs that this file once claimed existed.
+
+## `latest` tag resolution — the v0.3.0 break
+
+Both bootstrap scripts resolved `LLAMA_VERSION=latest` via `GET /repos/ggml-org/llama.cpp/releases/latest` and used the returned `tag_name` directly. That broke on **2026-08-30**: `.\bootstrap.ps1` died with `curl exit 22` / HTTP 404 on `llama-v0.3.0-bin-win-cuda-12.4-x64.zip`. Cause is upstream, not local — ggml-org now publishes the per-commit build tags (`b<number>`) that carry the binaries as **prereleases**, so `/releases/latest` returns a semver release (`v0.3.0`) whose **only** asset is `nightly-tag.txt`, a one-line pointer to the blessed build tag (contents at discovery: `b10621`). The asset naming itself is unchanged.
+
+Fixed in both `bootstrap.ps1` (`Resolve-Tag`) and `bootstrap.sh` (`resolve_tag`), same three-step ladder: use `tag_name` if it matches `^b[0-9]+$`; otherwise read the release's `nightly-tag.txt`; otherwise take the newest tag matching `^b[0-9]+$` from `/releases?per_page=20`. The pointer is preferred over the newest prerelease deliberately — it is upstream's own choice of a stable nightly, and `/releases?per_page=20` moves roughly every 20 minutes (ten builds published within 3 h on the day of the fix). Verified 2026-08-30: resolves to `b10621`, and `llama-b10621-bin-win-cuda-12.4-x64.zip`, `cudart-llama-bin-win-cuda-12.4-x64.zip` and `llama-b10621-bin-ubuntu-vulkan-x64.tar.gz` all return HTTP 200. The download+extract path was not re-run end to end on hermine.
+
+## The nightly pointer can lag behind an arch merge — pin, or auto-update downgrades you
+
+Consequence of the pointer preference above, hit **2026-09-03**: Qwen3.8-Flash-Next needs arch
+`qwen4exp` (merged 2026-08-27, follow-up fixes 2026-09-01), but `nightly-tag.txt` still pointed
+at **b10621 (2026-08-25)** — a build from *before* the merge, failing with
+`unknown model architecture: 'qwen4exp'` while builds up to b10766 were already published.
+Two implications: (1) to run a freshly merged arch, pin `LLAMA_VERSION="b<number>"` in
+`config.ps1`/`config.env`; (2) the pin is **load-bearing against downgrade** — the server
+scripts' auto-update check resolves `latest` through the pointer, so an unpinned restart would
+reinstall the older blessed build and silently break the model. Un-pin once the pointer moves
+past the needed build. Same day, `config-load.sh` and `bootstrap.ps1` gained env-var precedence
+for `LLAMA_VERSION` (previously only `LLAMA_MODELS_DIR`/`LLAMA_PRESET` survived config
+sourcing), so a one-shot `LLAMA_VERSION=b10766 bash bootstrap.sh --force` now works as the
+documented env > config precedence always claimed. Note: `bootstrap.ps1` must be run with
+**pwsh** (PowerShell 7) — Windows PowerShell 5.1 misparses the file's UTF-8 em-dashes without a
+BOM and dies with parser errors.
+
+## RPC: pooling lieselotte's 7900 XTX into hermine's server
+
+First multi-machine load (Qwen3.8-Flash-Next, 2026-09-03, both ends b10766): official prebuilts
+ship `ggml-rpc-server(.exe)` + `libggml-rpc`/`ggml-rpc.dll` (verified in both the win-cuda and
+ubuntu-vulkan b10621/b10766 archives). lieselotte runs
+`vendor/llama.cpp/ggml-rpc-server -H 0.0.0.0 -p 50052 -d Vulkan0 -c`; hermine's section carries
+`rpc = 192.168.1.39:50052` and sees the card as `RPC0` (use the IP — `hermine`-style hostnames
+are unreliable across the WSL/Windows resolver split). Findings:
+
+- `-d <GPU>` on the rpc-server keeps the remote CPU out of the pool (experts belong in the
+  *host's* RAM, not behind the LAN); `-c` caches shipped tensors on the remote disk — without
+  it every model load re-transfers ~19 GB.
+- `llama-fit-params` and `llama-server` both accept `--rpc` (env `LLAMA_ARG_RPC`); fit-params
+  emits a ready `-ngl/-ts/-ot` combination for the pooled devices. `recommend.sh` predates RPC:
+  its device table only shows local devices and it misreads split GGUFs (sees the 10 MiB first
+  shard, calls a 125B MoE "dense", derives the section name from the quant subdir) — for RPC
+  models, run fit-params by hand and use the script only as checklist.
+- **Do not set a `device` key for an RPC-split model** unless the split values were computed
+  under that explicit order: `device = CUDA0,RPC0` alone collapsed generation 8.4 → 2.9 t/s
+  against the identical implicit-enumeration config (isolated single-flag A/B; details and the
+  full ladder in `docs/models/Qwen3.8-Flash-Next.md`).
+- RPC protocol: no auth, no encryption, version-matched builds on both ends. LAN only.
+- **The RPC pipeline has a measurable fixed sync cost per token, and speculative decoding is
+  how you buy it back** (Qwen3.8-27B UD-Q8_K_XL, 2026-09-04, b10786): a 3-point `-ts` sweep
+  solves to XTX ≈ 0.87 ms/block + 4090 ≈ 0.55 ms/block + **~10 ms/token fixed** (the #22850
+  sync tax; rebalancing layers is a ±0.3 t/s dead end). Speculation at the twins' defaults
+  (n-max 3, p-min 0) measures at or *below* no-spec — each verify round pays the LAN hops
+  regardless of batch size — but **confidence-gated long drafts invert it**: sidecar drafter
+  pinned via `device-draft = CUDA0` (mandatory — embedded MTP re-serializes the RPC graph and
+  stays slower) with `spec-draft-n-max = 6` + `spec-draft-p-min = 0.5` lifts prose 17.4 →
+  27–32 and rewrites 26.7 → 44–48 t/s (/completion probes; chat endpoint with thinking:
+  20.5–22.9 / 36.9, tg@14k 16.2 → 27.6). Both knobs isolated as individually insufficient.
+  ngram-mod also measured its first win here (0.92 acceptance on verbatim rewrites). Also
+  measured: asymmetric `fit-target` and `-ub 2048` each collapse tg ~40 % (fit placement is
+  config-sensitive). Details: `docs/models/Qwen3.8-27B.md`.
+- Router mode passes INI keys through to spawned instances verbatim, including an
+  `override-tensor` regex containing `=` and `,` — no quoting issues (verified via spawn log).
+
+## Windows RAM notes (hermine, 2026-09-03)
+
+`Win32_ComputerSystem.TotalPhysicalMemory` reports 63.8 GiB. During the mlock'd
+Qwen3.8-Flash-Next run Windows still showed 34.3 GiB free although the nominal host share is
+~45 GB — consistent with lazy n-gram-table reads (upstream #28256) rather than full residency.
+The Windows shell's 4090 baseline has grown again: 977 MiB used at idle (was ~241 MiB after the
+GT-610 swap) — re-check `nvidia-smi` before margin-critical loads.

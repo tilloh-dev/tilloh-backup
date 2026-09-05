@@ -56,12 +56,28 @@ install_apt_deps() {
 }
 
 resolve_tag() {
-    if [[ "$LLAMA_VERSION" == "latest" ]]; then
-        curl -fsSL https://api.github.com/repos/ggml-org/llama.cpp/releases/latest \
-            | jq -r '.tag_name'
-    else
+    if [[ "$LLAMA_VERSION" != "latest" ]]; then
         printf '%s' "$LLAMA_VERSION"
+        return
     fi
+
+    # ggml-org publishes the per-commit build tags (b<number>) that carry the
+    # binaries as *prereleases*. /releases/latest therefore returns a version
+    # tag (e.g. v0.3.0) whose only asset is nightly-tag.txt — a pointer to the
+    # build tag that does have the tarballs. Follow that pointer.
+    local api='https://api.github.com/repos/ggml-org/llama.cpp'
+    local latest tag
+    latest="$(curl -fsSL "$api/releases/latest" 2>/dev/null | jq -r '.tag_name // empty' || true)"
+    if [[ "$latest" =~ ^b[0-9]+$ ]]; then printf '%s' "$latest"; return; fi
+
+    if [[ -n "$latest" ]]; then
+        tag="$(curl -fsSL "https://github.com/ggml-org/llama.cpp/releases/download/$latest/nightly-tag.txt" 2>/dev/null | tr -dc 'a-z0-9' || true)"
+        if [[ "$tag" =~ ^b[0-9]+$ ]]; then printf '%s' "$tag"; return; fi
+    fi
+
+    # Fallback: newest prerelease whose tag looks like a build tag.
+    curl -fsSL "$api/releases?per_page=20" 2>/dev/null \
+        | jq -r '[.[] | select(.tag_name | test("^b[0-9]+$"))][0].tag_name // empty' || true
 }
 
 detect_arch() {
