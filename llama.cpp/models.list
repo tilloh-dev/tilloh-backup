@@ -11,22 +11,19 @@
 
 # --- Your models -----------------------------------------------------------
 unsloth/Qwen3.8-27B-GGUF              | Qwen3.8-27B-UD-Q4_K_M.gguf         | Qwen3.8-27B
+unsloth/Qwen3.8-27B-GGUF              | Qwen3.8-27B-UD-Q4_K_S.gguf         | Qwen3.8-27B
+ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF  | Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf | Qwen3.8-27B
 unsloth/Qwen3.8-27B-GGUF              | Qwen3.8-27B-UD-Q4_K_XL.gguf         | Qwen3.8-27B
 unsloth/Qwen3.8-27B-GGUF              | Qwen3.8-27B-UD-Q8_K_XL.gguf        | Qwen3.8-27B
 unsloth/Qwen3.8-27B-GGUF              | MTP/mtp-Qwen3.8-27B-Q4_0.gguf      | Qwen3.8-27B
 unsloth/Qwen3.8-27B-GGUF              | mmproj-F16.gguf                    | Qwen3.8-27B
-incoai/Qwen3.8-27B-DFlash2-GGUF       | Qwen3.8-27B-DFlash2-Q4_K_M.gguf    | Qwen3.8-27B
-unsloth/Qwen3.6-27B-MTP-GGUF          | Qwen3.6-27B-IQ4_XS.gguf            | Qwen3.6-27B
 unsloth/Qwen3.6-35B-A3B-MTP-GGUF      | Qwen3.6-35B-A3B-UD-IQ4_XS.gguf     | Qwen3.6-35B-A3B
 unsloth/gemma-4-26B-A4B-it-qat-GGUF   | gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf | gemma-4-26B-A4B
 unsloth/gemma-4-26B-A4B-it-qat-GGUF   | mtp-gemma-4-26B-A4B-it.gguf        | gemma-4-26B-A4B
 unsloth/gemma-4-31B-it-qat-GGUF       | gemma-4-31B-it-qat-UD-Q4_K_XL.gguf | gemma-4-31B
 unsloth/gemma-4-31B-it-qat-GGUF       | mtp-gemma-4-31B-it.gguf            | gemma-4-31B
 bartowski/Laguna-XS-2.1-GGUF          | Laguna-XS-2.1-IQ4_XS.gguf          | Laguna-XS-2.1
-unsloth/Qwen-AgentWorld-35B-A3B-GGUF  | Qwen-AgentWorld-35B-A3B-UD-IQ4_XS.gguf | Qwen-AgentWorld-35B-A3B
 ornith-ai/Ornith-1.5-35B-A3B-GGUF     | Ornith-1.5-35B-Q4_K_M.gguf         | Ornith-1.5-35B-A3B
-deepreinforce-ai/Ornith-1.0-35B-GGUF  | ornith-1.0-35b-Q4_K_M.gguf         | Ornith-1.0-35B
-deepreinforce-ai/Ornith-1.0-9B-GGUF   | ornith-1.0-9b-Q8_0.gguf            | Ornith-1.0-9B
 prism-ml/Ternary-Bonsai-27B-gguf      | Ternary-Bonsai-27B-Q2_g64.gguf     | Ternary-Bonsai-27B
 meta-models/Muse-Glimmer-30B-GGUF     | Muse-Glimmer-30B-KQuant-17GB-Q4_K_M.gguf | Muse-Glimmer-30B
 meta-models/Muse-Glimmer-30B-GGUF     | dflash-Muse-Glimmer-30B-Q4_K_M.gguf | Muse-Glimmer-30B

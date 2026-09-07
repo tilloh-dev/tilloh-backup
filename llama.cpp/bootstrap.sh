@@ -89,8 +89,6 @@ GH_DL='https://github.com/ggml-org/llama.cpp/releases/download'
 
 resolve_tag() {
     if [[ "$LLAMA_VERSION" != "latest" ]]; then
-        curl -fsSL "$GH_API/releases/latest" 2>/dev/null | jq -r '.tag_name // empty' || true
-    else
         printf '%s' "$LLAMA_VERSION"
         return
     fi

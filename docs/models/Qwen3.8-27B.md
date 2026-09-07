@@ -123,10 +123,127 @@ tested config ran without them (mmap default loaded 29.3 GiB in ~31 s warm). The
 on CPU (`mmproj-offload = false`), same reasoning as the twins. RPC has no auth — LAN only;
 if lieselotte's rpc-server is down the load fails loudly (intended, same as Flash-Next).
 
-## DFlash2 speculation section (added 2026-09-05, unmeasured)
+## DFlash2 speculation section (added 2026-09-05; measured same day — loses the A/B)
 
 `[Qwen3.8-27B-UD-Q4_K_M-200ctx-q4_0-dflash2]` is an **experimental** twin of the 200ctx MTP section: same target GGUF, ctx 200000, q4_0/q4_0 KV, thinking sampling, mmproj on CPU — but `spec-type = draft-dflash` with the external block-diffusion drafter `incoai/Qwen3.8-27B-DFlash2-GGUF` (Q4_K_M, 1.1 GB, added to `models.list`) instead of the embedded MTP head. `spec-draft-n-max = 7` and the Q4_K_M drafter follow the drafter's HF card (incoai/Qwen3.8-27B-DFlash2-GGUF); draft KV q4_0/q4_0 follows the only other dflash section in this file (Muse-Glimmer-30B).
 
 Upstream status: dflash support landed in stock llama.cpp via PR #27816 (merged 2026-08-27), so the prebuilt bootstrap build picks it up; the "build from PR #27342" instructions on the HF card are stale.
 
-**Nothing on this box is measured yet:** whether 200k + target + drafter + draft KV fits in 24 GB (the MTP section alone already needed ~2.6 GiB of embedded-head overhead at 229376; the external drafter adds its own 1.1 GB weights + KV), and whether dflash beats the 1.85× MTP number on this model. The drafter card reports GSM8K acceptance length ~5.1–5.4 (Q4_K_M: 5.39) on the *ggml-org* Q4_K_M target at their sampling settings — a different target quant, different engine, not comparable to the hermine MTP runs. First load should go through `llama-fit-params` / real `nvidia-smi`, and an A/B short-probe against the 200ctx MTP section before this section is trusted or wired into any OpenCode provider.
+**A/B measured 2026-09-05 (build 10786, direct `llama-server.exe` runs with each section's exact flag set, test port, idle GPU baseline ~450 MiB; /completion probes, temp-1.0 card set, warm, `cache_prompt: false`). Verdict: the MTP twin stays the primary — dflash2 wins only near-verbatim rewrites.** The drafter GGUF was downloaded to `E:/Llama.cpp/models/Qwen3.8-27B/` next to the target (note: `download-model.sh` drops it under `$LLAMA_MODELS_DIR` = `C:/Users/Anwender/AppData/Local/llama.cpp/models`; it was moved to E: to match the live `models.ini` paths).
+
+| Probe (identical prompts both sides) | MTP (`draft-mtp`, n-max 3) | DFlash2 (`draft-dflash`, n-max 7) |
+|---|---|---|
+| VRAM at 200k load (`nvidia-smi`) | 22086 MiB (~940 MiB free) | **22563 MiB (~465 MiB free)** |
+| prose 400-tok ×3 | **65.9–69.4 t/s** (acc 0.44–0.49, len 2.3–2.5) | 54.4–61.7 t/s (acc 0.20–0.38, len 2.4–3.6) |
+| verbatim script rewrite ×2 | 111.6–112.1 t/s (acc 1.00, len 4.00 — n-max cap saturated) | **154.9–155.0 t/s** (acc 0.94, len 7.56) |
+| pp @19.3k-token prompt | **2473–2569 t/s** | 1762–1781 t/s (drafter prefills the context too) |
+| tg @19.3k depth ×2 | **78.8–79.1 t/s** | 65.7–69.3 t/s |
+
+So: **both fit at 200k**, but dflash2 costs ~480 MiB more and leaves the margin under the documented Windows-shell creep (~977 MiB) — a mid-session OOM risk the MTP twin doesn't have. On throughput dflash2 is 10–17 % slower on prose (short and at depth) and ~30 % slower on long-prompt processing; its one win is +38 % on near-verbatim file rewrites, where its n-max 7 saturates at 0.94 acceptance while MTP is pinned at its n-max 3 ceiling (acceptance 1.00, mean len 4.00 — the cap, not the head, is the limiter there). Untested: raising MTP's n-max with a p-min gate à la the RPC section might close that rewrite gap without dflash2's costs (n-max 4 *without* a gate measured worse on 10424, see above); chat-endpoint/thinking and vision behaviour of dflash2 were not probed. The HF card's GSM8K acceptance ~5.4 did not reproduce on this workload mix (3.6–3.8 at depth, 2.4–3.6 on prose). Section left in `models.example.ini` only — **not** merged into the live `models.ini` and not wired into any OpenCode provider.
+
+### Drafter retest with `HermiHg/Qwen3.8-27B-DFlash2-Q2_K_S-MIX-GGUF` (2026-09-06, build 10786)
+
+Community drafter quants surveyed for a better fit: the official repo carries Q4_K_M 1.1 GB (card acceptance-length 5.39 — its own best), Q8_0 2.0 GB (5.13) and BF16 3.8 GB (5.28) — the two larger ones are disqualified by VRAM at 200k. Two smaller community quants exist: `analogalok/…-Q2_K-GGUF` (~700 MB, card: acceptance parity on a 4090) and **`HermiHg/…-Q2_K_S-MIX-GGUF` (561 MB, iq2_xxs FFN / q5_k+iq2_s selector / q3_k projection / f32 norms; card: 97 % of reference acceptance, throughput parity)**. The MIX was adopted into the dflash2 section (`models.list` + `model-draft` swapped; old Q4_K_M drafter file left on disk) and re-measured with the same method, plus a same-day MTP control run:
+
+| Probe | MTP control (same day) | DFlash2 MIX (n-max 7) | DFlash2 Q4_K_M (2026-09-05) |
+|---|---|---|---|
+| VRAM at 200k (`nvidia-smi`) | 22175 MiB (~850 free) | 22444 MiB (~585 free) | 22563 MiB (~465 free) |
+| prose 400-tok ×3 | **65.5–73.6 t/s** | 60.3–65.4 t/s (acc 0.16–0.23, len 2.1–2.6) | 54.4–61.7 t/s |
+| verbatim rewrite ×2 | 110.8–111.1 t/s | **176.2–182.3 t/s** (acc 0.94, len 7.56 — same as Q4_K_M, drafts just cost less) | 154.9–155.0 t/s |
+| pp @19.3k prompt | **2550–2574 t/s** | 2314–2437 t/s | 1762–1781 t/s |
+| tg @19.3k ×4–6 | 60.8–83.6 (median ~70) | 49.9–87.3 (median ~57) | 65.7–69.3 |
+
+Notes on data quality: this day's depth-tg probes were noisy **for both configs** (MTP itself spread 61–84 where the previous day gave a tight 78.8–79.1), so depth medians, not single runs, carry the comparison; prose/rewrite reproduced the previous day's MTP numbers closely. The expected ~540 MiB VRAM saving from the smaller drafter did **not** fully materialize: only ~120 MiB more free at load (585 vs 465), and net of the day's idle-baseline drift the footprints are near-identical — unexplained, treat the free-margin readings as the operative numbers.
+
+**Verdict: the MIX drafter strictly improves the dflash2 section over the Q4_K_M drafter** (prose +6–10 %, rewrites +15 %, pp@depth +35 %, slightly more VRAM margin — the Q4_K_M drafter has no remaining advantage), **but the overall A/B verdict vs the MTP twin stands**: MTP remains faster on prose (~8 %), long-prompt pp (~5 %) and depth-tg median, with ~265 MiB more margin. dflash2+MIX's one dominant win is near-verbatim rewrites (+60 % over MTP). Keep MTP as the primary; the dflash2 section is now worth keeping as the rewrite-heavy special case, still `models.example.ini`-only.
+
+## Triangle retune → new section `[Qwen3.8-27B-UD-Q4_K_S-131ctx-q8_0]` (2026-09-06, build 10786)
+
+Brief: best speed/quality/context balance from the existing measurement points, open to any unsloth Q4 quant. Three findings drove the result, all measured same-day with the established probe set (/completion, temp-1.0 card set, warm; prose 400-tok ×3, verbatim rewrite ×2, 19.3k-prompt depth probes):
+
+1. **Sub-~600-MiB VRAM margins put the Windows driver into overcommit and collapse throughput.** Reproduced repeatedly: the 150ctx-q8_0 twin (UD-Q4_K_M @131000, ~500 MiB free under the day's shell creep — baseline breathed between ~420 and 1017 MiB) measured pp 608–1686 (unstable) and depth-tg 46–62; the identical config at ctx 114688 (~940 free) recovered to pp ~2550, depth-tg 60–81, prose 59–73. The 147456/q8_0 point (~594 free with UD-Q4_K_M) is dead the same way (pp ~1420, depth-tg 25–29). **The twins' weights moved from IQ4_XS to UD-Q4_K_M (+~1 GiB) outside any recorded session, which silently ate the margin the August ladder was built on — the 131k q8_0 twin is in the overcommit zone whenever shell creep is high.**
+2. **The RPC speed recipe does not transfer to local decode.** `spec-draft-n-max = 6` + `spec-draft-p-min = 0.5` (the Q8_K_XL-RPC winner): prose drops to 44–57 (vs 65–74 at n-max 3) — without the ~10 ms/token RPC sync tax there is nothing to amortize and the discarded long drafts just cost MTP forwards. p-min 0.5 on n-max 3 is also a no-gain (54–67 prose). **n-max 3, ungated, stays.**
+3. **Rewrite speed comes from chained ngram-mod, not from the MTP draft budget**: n-max 3 + ngram-mod hits 226–440 t/s on verbatim rewrites (same level as the gated-6 config, without its prose loss). The 200ctx twin, which lacks ngram-mod, sits at 109–111 there — wiring `ngram-mod` into it is a free ~2× rewrite win (not done here, separate retune).
+
+**Resolution of the margin problem: buy the ~1 GiB back in weight bits, not context or KV bits.** unsloth Q4-class ladder: UD-IQ4_XS 13.27 / UD-Q4_K_S 14.30 / UD-Q4_K_M 15.33 / UD-Q4_K_XL 16.35 GiB (plus legacy Q4_0/Q4_1, dominated by the UD series). UD-Q4_K_S (−1.03 GiB) keeps ctx 131072 and q8_0/q8_0 KV with a healthy margin; UD-IQ4_XS @163840+ was rejected because the 200ctx twin already owns the context corner and −2 GiB of weight bits likely costs more quality than q4_0→q8_0 KV buys (not measured, reasoned). Measured result for the new section (UD-Q4_K_S, ctx 131072, q8_0/q8_0, draft-mtp,ngram-mod n-max 3, draft KV q4_0/q4_0):
+
+| Same-day comparison | **UD-Q4_K_S-131ctx-q8_0 (new)** | 200ctx-q4_0 twin | 150ctx-q8_0 twin |
+|---|---|---|---|
+| VRAM at load | 21472 MiB (**~1.55 GiB free**) | 22050 (~0.98 free) | 22530 (~0.5 free) |
+| prose 400-tok ×3 | 63.5–69.1 t/s | **69.2–71.2** | 53.8–61.5 |
+| verbatim rewrite ×2 | **233–385 t/s** | 109–111 (no ngram) | 154–241 |
+| pp @19.3k prompt | **2611–2622 t/s** | 2579–2586 | 608–1686 (unstable) |
+| tg @19.3k ×2–4 | 59–82 (median ~66) | 62–76 | 46–62 |
+| context / KV | 131072 / q8_0 | 200000 / q4_0 | 131000 / q8_0 |
+
+**Verdict: the new section strictly dominates the 150ctx-q8_0 twin** (same context, same KV quality, faster on everything, 3× the margin; only unmeasured delta is UD-Q4_K_M→UD-Q4_K_S weight quality — no local KLD run). Against the 200ctx twin it trades ~70 k context and ~7 % prose speed for q8_0 KV quality (KLD 0.0039 vs 0.0099), ~2–3× rewrite speed and ~0.6 GiB more margin. Recommended roles: **UD-Q4_K_S-131ctx-q8_0 as the daily agentic primary, 200ctx-q4_0 for genuinely long sessions, 150ctx-q8_0 twin retired** (dominated). Caveats: depth-tg spread 46–84 across all configs this day (single-run depth numbers are noise — medians carry); the section was probed via direct llama-server runs, not router-verified; day's data taken while baseline crept 420–1017 MiB.
+
+(Note 2026-09-06, user decision: sections renamed and pruned — the new UD-Q4_K_S section is now **`[Qwen3.8-27B]`**, the 200ctx-q4_0 section is **`[Qwen3.8-27B-lang]`**, and the dominated `[Qwen3.8-27B-UD-Q4_K_M-150ctx-q8_0]` was **removed** from both preset files (its UD-Q4_K_M GGUF stays — `-lang` and the dflash2 example still use it). This supersedes the 2026-09-04 naming note above. The hermine OpenCode provider IDs `Qwen3.8-27B-small`/`-large` remain stale and now point at nothing; the provider would need `Qwen3.8-27B` and `Qwen3.8-27B-lang` instead — and note the hermine `Qwen3.8-27B` ID now collides by name with lieselotte's plain ID, which points at that machine's own (unverified-there) preset. Not fixed here.)
+
+## `-lang` retune: UD-Q4_K_S, ctx 229376, ngram-mod (2026-09-06, build 10786)
+
+Question: can `-lang` reach the native 262144 window by switching its weights UD-Q4_K_M → UD-Q4_K_S too? Measured ladder (all UD-Q4_K_S, q4_0/q4_0 KV, `draft-mtp,ngram-mod` n-max 3, mmproj on CPU; fit-params lower bounds excl. MTP: 200000 → 18505, 229376 → 19161, 262144 → 19897 MiB; idle baseline ~400 MiB during all loads):
+
+| ctx | used / free (`nvidia-smi`) | prose ×3 | rewrite ×2 | pp @19.3k | tg @19.3k |
+|---|---|---|---|---|---|
+| 262144 | 22450 / ~578 | 50.3–52.2 | 189–403 | 1995–2010 | 50–59 |
+| 245760 | 22428 / ~600 | 63.5–65.7 | 236–445 | 2602–2605 | 76–87 |
+| **229376 (adopted)** | 21936 / **~1090** | **66.3–75.9** | **241–446** | **2593–2595** | 61–63 |
+
+**262144 loads but throttles** — and the comparison of 262144 vs 245760 sharpens the overcommit finding: both show ~580–600 MiB "free" in `nvidia-smi`, yet only 262144 collapses. The margin number alone is not the mechanism; what matters is whether a large allocation (here the 1360-MiB pp compute buffer, per fit-params) spills into Windows shared memory. `nvidia-smi` "used" looks near-identical in both cases because it only counts dedicated VRAM — **a healthy-looking margin does not prove a healthy load; probe pp before trusting any near-full configuration.** 245760 is fast today but leaves no headroom for the documented same-day baseline swing (396 → 1017 MiB), so 229376 is the robust point: +15 % window over the old 200000 at full speed, ~1.1 GiB free, and (via the section's new `ngram-mod`) ~4× the old rewrite throughput (241–446 vs 109–111 t/s on the old UD-Q4_K_M section).
+
+`[Qwen3.8-27B-lang]` therefore now runs UD-Q4_K_S / 229376 / q4_0 / `draft-mtp,ngram-mod` (alias `Qwen3.8-27B-UD-Q4_K_S-lang`); the old UD-Q4_K_M@200000 config is retired. Same open trade as the primary: the UD-Q4_K_M → UD-Q4_K_S weight-quality delta is unmeasured (no KLD run). Router-verified same day (`LLAMA_AUTO_UPDATE=0 bash server.sh`): `/v1/models` lists it, spawn works with clean `reasoning_content` separation, and the 19.3k-prompt /completion probe over the router measures pp 2502–2608 / tg 64–78 — matching the direct-run numbers. Note the router's /completion endpoint requires the `model` field in the payload (a direct single-model server does not); a 400 there is the probe's fault, not the preset's.
+
+(Note 2026-09-06, later same day: **the DFlash2 experiment was closed and deleted on user decision** — the `[…-dflash2]` section was removed from `models.example.ini`, the drafter entry from `models.list`, and both drafter GGUFs (incoai Q4_K_M, HermiHg Q2_K_S-MIX) from disk. The measurement sections above stay as the record of why: dflash2 lost the general-agentic A/B against the embedded MTP head twice, and its one win — verbatim rewrites — is since covered for free by `ngram-mod` in both standing presets, which reach 233–446 t/s there vs dflash2's 155–182. Muse-Glimmer-30B's own dflash drafter is unaffected.)
+
+## Community-lever sweep (2026-09-06, build 10786, one lever per load on `[Qwen3.8-27B]`)
+
+All five levers from the 2026-09-06 research pass measured against a fresh same-day baseline (prose 65–79, rewrite 231–267, tg@19.3k 60–75, pp ~2610). Verdicts:
+
+| Lever (source) | Measured | Verdict |
+|---|---|---|
+| `spec-draft-n-max = 2` (sudoingX 4090 sweet spot) | prose 65–76, deep 60–70, rewrites 213–447 | **no gain** over n-max 3 within day noise — stays 3 |
+| `ngram-map-k4v` n16/m24/min-hits1 (Lirezh) instead of ngram-mod | prose/deep ≈ baseline, **rewrites 191–200** (acc 0.88–0.93 but len ~10 vs ngram-mod's up-to-50 blocks) | **worse on the verbatim-rewrite case** — ngram-mod stays. Caveat: Lirezh's 6× claim was for *paraphrase*, not verbatim; untested here |
+| `ctx-checkpoints = 32` (+ `checkpoint-min-step`) (countzero/Lirezh) | **already the build default (32)** — countzero's key is a no-op. History-edit test (edit ~600 tok before end of a 19.3k prompt, `cache_prompt: true`): default checkpoints reprocess **510 tok / 0.36 s**; `--ctx-checkpoints 0` control reprocesses **19315 tok / 7.3 s** | **~20× agent-loop latency win, active without any preset key.** Reprocessing starts at the exact divergence point, so a finer `checkpoint-min-step` has nothing left to buy — neither key is written |
+| `cache-ram = 51200` (countzero) | A/B/A alternation of two ~14k-token sessions at `cache-ram = 16384`: third request `prompt_n = 4` — the evicted session survived in the host cache | **16384 already covers the measured case** — not adopted; would only matter at ~20+ parallel large sessions |
+| `image-min-tokens = 1024` (countzero + our own server-log hint) | no speed/VRAM regression (prose 64–70, rewrites 231–448, 21537 MiB) | **adopted** into `[Qwen3.8-27B]` and `[Qwen3.8-27B-lang]` — vision-grounding quality fix, effect on vision quality itself unmeasured (no vision benchmark run). The RPC section also carries the mmproj but was not touched/tested |
+
+Net result of the sweep: the standing presets were already at the measured local optimum for speed; the one adopted change is quality-motivated (`image-min-tokens`). The checkpoint control run is the sweep's real yield — it documents that agent-loop history edits are already ~20× cheaper than a naive full reprocess, which had never been verified on this machine.
+
+## HF finetune/variant survey for speed and full-context (2026-09-06, research only — nothing tested)
+
+Two-track survey of the ~100 Qwen3.8-27B derivatives on HuggingFace. Track 1 (speed finetunes): **no credible candidate beats the embedded MTP head on stock llama.cpp.** The field is dominated by uncensored/abliterated merges (behaviour changes, not speed), vLLM-stack quants (AWQ/GPTQ/W4A16, NVFP4 = Blackwell-only), and external drafters of the class that already lost our A/Bs — `RadixArk/Qwen3.8-27B-DSpark` (1.86B drafter, SGLang-trained; our build lists `draft-dspark` but no llama.cpp-verified GGUF path, and the DFlash2 result argues against the whole class locally). No trained EAGLE3 head for this model exists on HF; llama.cpp's eagle3 support itself is still the WIP-PR stage for chained use. `logic65/Qwen3.8-Whittle-MoE-27B-A17.8B` (post-hoc MoE-fication, ~8.9B active) would be genuinely faster but its own card documents quality regressions (exact-counting 8/36 → 2/36) — not at `-lang` quality.
+
+Track 2 (full 262144 ctx at ~`-lang` quality): **one real candidate — `ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF`.** Gumbel-Softmax quantization + Riemannian-constrained per-tensor type assignment; standard GGUF, runs on stock llama.cpp; `IQ3_S-mtp` is **11.29 GiB with the MTP head included** (3.0 GiB below our UD-Q4_K_S) plus a BF16 mmproj. Card claims "task-lossless" at 3.5 bpw (AIME25 100.00 = BF16 base, LiveCodeBench 85.71, beats unsloth IQ3_S by 3.3 AIME points at smaller size). Napkin fit (do not trust — measure): our K_S@262144+MTP sat at 22450 MiB throttled; −3.0 GiB weights ≈ ~19450 → ~3 GiB free → full native window with healthy margin, possibly even q8_0 KV. **Untested locally**: no KLD run (card benchmarks are coarser than KLD; a local ladder against UD-Q8_K_XL as reference would settle it), no throughput probe, and "task-lossless at 3.5 bpw" is a strong claim to verify before trusting. This was measured the same day — see below.
+
+### GSQ-RCO IQ3_S-mtp measured (2026-09-06, build 10786): quality holds, full 262144 fits fast
+
+Downloaded `Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf` (11.29 GiB) to E: (deliberately **not** in `models.list` yet). Three-part test:
+
+**Fit @262144** (q4_0/q4_0, `draft-mtp,ngram-mod` n-max 3, mmproj-F16 from the unsloth repo — loads cleanly with ISTA's weights): 20414 MiB used at a 916-MiB creep baseline → **~2.6 GiB free at full native context**, comfortably clear of the sysmem-fallback zone.
+
+**Speed @262144** (same probe suite): prose 72.1–82.2 t/s, rewrites 243–453, tg@19.3k 69.9–83.9, pp 2559–2563 — the best prose/depth numbers of the whole session (smaller weights = less memory traffic); the GSQ-quantized MTP head drafts normally (acceptance 0.40–0.68, mean len 2.5–3.1).
+
+**Quality vs UD-Q4_K_S** (identical settings per pair; per user decision UD-Q8_K_XL was not used as reference — it is not the daily driver until its RPC speed problem is solved):
+
+| Metric (llama-perplexity, -fa on, -ngl 999) | GSQ-RCO IQ3_S-mtp (11.29 GiB) | UD-Q4_K_S (14.30 GiB) |
+|---|---|---|
+| wikitext-2 test PPL, ctx 16384 | **5.9706 ± 0.0375** | 6.0815 ± 0.0394 |
+| HellaSwag 400 tasks, acc | 82.00 % [77.9, 85.5] | 82.75 % [78.7, 86.1] |
+
+Verdict: **yes, it keeps up** — PPL is actually *better* than UD-Q4_K_S (non-overlapping at ±1σ), HellaSwag is a 3-task difference inside heavily overlapping CIs. Honest limits: both metrics are prose/commonsense; coding/agentic behaviour was not measured locally (ISTA's LiveCodeBench 85.71 claim covers it, but that is their number). GSQ is calibration-trained, so some affinity to wikitext-like text is conceivable — HellaSwag as the second axis mitigates but does not eliminate that. Vision path untested beyond a clean load. If adopted for a preset, add the GGUF to `models.list` and decide which section it replaces.
+
+(Note 2026-09-07, user decision: **GSQ-RCO adopted as the default.** `[Qwen3.8-27B]` now runs the GSQ-RCO IQ3_S-mtp weights at full native ctx 262144 / q4_0 KV / `draft-mtp,ngram-mod` n-max 3 (exactly the measured config above; router-verified: spawn at 20607 MiB ≈ 2.4 GiB free, clean reasoning separation). The previous default moved to **`[Qwen3.8-27B-UD]`** (UD-Q4_K_S, 131072 / q8_0 — unchanged otherwise), and **`[Qwen3.8-27B-lang]` was removed** — its full-context role is covered by the new default. GSQ GGUF added to `models.list`. Adoption happened with the aider-polyglot coding A/B still open (run A / UD-Q4_K_S: 73.5 % pass_rate_2; run B on GSQ pending) — if run B lands clearly below run A, revisit this decision.)
+
+## Aider-polyglot coding A/B: GSQ-RCO loses to UD-Q4_K_S (2026-09-07, build 10786)
+
+The industry-standard agentic probe promised alongside the GSQ adoption. Setup: aider polyglot benchmark, **Python subset (34 exercism tasks)**, `--edit-format whole`, threads 1, both models served identically (direct llama-server, ctx 131072, q8_0/q8_0 KV, draft KV q4_0, `draft-mtp,ngram-mod` n-max 3, `--chat-template-kwargs '{"reasoning_effort": "low"}'` — without the cap the model thinks ~22k tokens per task and the bench is infeasible; aider sends temp 0). Harness gotchas recorded for reruns: `AIDER_DOCKER=1` bypasses the docker gate, `pytest` must be on PATH, `--exercises-dir` resolves relative to `tmp.benchmarks`. Artifacts: `E:/Llama.cpp/eval/aider-bench/`.
+
+| Run (34 tasks) | pass_rate_1 | pass_rate_2 | notes |
+|---|---|---|---|
+| A: UD-Q4_K_S (14.30 GiB) | 26.5 % (9) | **73.5 % (25)** | 0 malformed, 50.4 s/case |
+| B: GSQ-RCO IQ3_S-mtp (11.29 GiB) | 11.8 % (4) | **61.8 % (21)** | 0 malformed, 1 test timeout, 51.3 s/case |
+
+**Reading: the coding-agentic axis contradicts the prose metrics.** PPL (5.97 vs 6.08, GSQ better) and HellaSwag (82.00 vs 82.75, tie) said "equal"; the agentic coding test says **−11.7 pp pass_rate_2 and less than half the first-try rate**. With n=34 the gap is ~1.4σ on pass_rate_2 alone — not ironclad — but both metrics point the same way and aider runs near-greedy, so a rerun would land close. ISTA's "task-lossless" LiveCodeBench claim did not reproduce on this workload. Lesson for the doc: **calibration-trained low-bpw quants can hold prose/commonsense metrics while losing coding precision — benchmark the axis you actually use before adopting.**
+
+Consequence for the 2026-09-07 adoption (which was made under exactly this proviso): **the "revisit" condition is met.** Options: (a) revert the default `[Qwen3.8-27B]` to UD-Q4_K_S weights (giving up 262k-at-full-speed), (b) keep GSQ as default for its context/speed and route coding-heavy work to `[Qwen3.8-27B-UD]`, (c) test the GSQ IQ3_S at a mixed operating point first (e.g. more tasks, or the full polyglot set) before deciding. Decision left to the user — not changed here.

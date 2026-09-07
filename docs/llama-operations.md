@@ -113,3 +113,12 @@ Qwen3.8-Flash-Next run Windows still showed 34.3 GiB free although the nominal h
 ~45 GB — consistent with lazy n-gram-table reads (upstream #28256) rather than full residency.
 The Windows shell's 4090 baseline has grown again: 977 MiB used at idle (was ~241 MiB after the
 GT-610 swap) — re-check `nvidia-smi` before margin-critical loads.
+
+## hermine host hardware (measured 2026-09-07, first time on record)
+
+CPU: i9-13900KF — 8 P-cores + 16 E-cores, 24 cores / 32 threads. RAM: 2× 32 GB G.Skill
+DDR5-6000, XMP active (ConfiguredClockSpeed = 6000). Dual-channel DDR5-6000 ≈ ~96 GB/s
+theoretical, ~70–80 real. Relevant because Flash-Next-class CPU-MoE decode is host-RAM-bound
+(~2–2.5 GB expert reads/token → ~30 t/s physical ceiling on this box) and because ggml's
+spin barriers make E-cores gate P-cores: `threads = 8` (P-only) measured fastest for CPU-MoE,
+12/16/24 all slower (see docs/models/Qwen3.8-Flash-Next.md, 2026-09-07 retune).

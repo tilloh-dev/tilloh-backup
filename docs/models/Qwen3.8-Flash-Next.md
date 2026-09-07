@@ -217,3 +217,45 @@ just queueing.
   Vulkan, not observed here, untested long-run).
 - **OpenCode providers**: not yet added to `opencode.jsonc` — hermine-only ID would break the
   "both providers list the same IDs" convention; user decision pending.
+
+## No-RPC retune (2026-09-07, build 10786): RPC dissolved, tg doubled, hermine-only
+
+**User decision 2026-09-07 supersedes the 2026-09-03 "RPC setup is fixed" decision**: the RPC
+pooling is dissolved and the section now runs on hermine alone. Trigger was a community video
+(RTX 3060 12GB / 6-core Ryzen / 61 GB DDR4) reaching 24.4 t/s on this model class with two
+levers: threads = one per *physical* core (12-thread SMT run spent 65 % in spin-waits), and
+letting mmap leave the 51B n-gram table on the SSD. Both transfer to hermine (i9-13900KF:
+8P+16E, 24 cores/32 threads; 63.8 GB RAM; E: NVMe).
+
+Measured ladder (same probe suite as the rest of the repo; prose = short 400-tok tg,
+deep = 19.3k-prompt):
+
+| Config (all: fit=on 1024,1024, ctx 261888, mmap, no RPC) | prose tg | pp @19.3k | tg @19.3k |
+|---|---|---|---|
+| RPC section (old, for reference) | 8.5–10.4 | ~236 (mlock) | 7.6 |
+| local, threads default (24) | 18.5–21.6 | 219–236 | 20.6–20.7 |
+| local, `-t 8 -tb 24` (P-cores only) | 20.3–24.7 | 233–239 | 22.7–22.8 |
+| `-t 12` / `-t 16` | 18.5–19.6 / 19.8–21.4 | — | — |
+| `-t 8` + `--prio 2` | 22.0–24.6 | — | — (neutral, not adopted) |
+| `-t 8` + `-ub/-b 2048` | 14.6–16.2 | **496–512** | 15.5–15.8 |
+| **`-t 8 -tb 24 -ub/-b 1024` (adopted)** | **20.0–23.1** | **366–377** | **22.4–22.7** |
+
+Readings: (1) **dropping RPC alone doubled tg** — the pipeline-parallel idle + sync tax was
+half the token time, as the 2026-09-03 analysis predicted ("RPC is a capacity play"). The
+capacity problem RPC solved is covered by mmap: the n-gram table stays on NVMe (lazy), experts
+page-cache into host RAM (Windows free RAM drops to ~3 GB under load — evictable page cache,
+but the box has no RAM headroom for other big jobs while this model is hot). **No `load-mode`
+key**: mlock would fight the 82-GB file on 64 GB RAM. (2) **threads = 8** (P-cores) beats 12/16/24
+— the video's spin-wait lesson holds on hybrid Intel exactly as the 2026-09-03 lever list
+suspected. (3) **ubatch/batch 1024** is the pp sweet spot: +56 % pp at zero tg cost; 2048
+doubles pp but costs a third of tg because fit re-places experts around the larger compute
+buffers. (4) `fit = on` stays load-bearing. (5) No build pin needed anymore — the pin existed
+only for RPC build-pairing with lieselotte. VRAM at load: 21.5–21.8 GB used (~1.2–1.4 GiB free);
+router-verified (spawn, clean reasoning separation, 16.2 t/s on the cold first request).
+
+Standing verdict vs the daily driver (`[Qwen3.8-27B]` GSQ @262k, 72–82 t/s): Flash-Next is now
+**usable** (>20 t/s bar) at 3–4× fewer tokens/s but a 177B-class model at full 262k — the
+challenger role is quality-per-token, not speed. MTP for qwen4exp remains an unmerged draft PR
+(#27836, checked 2026-09-07) — the biggest known future lever; re-check upstream periodically.
+The old RPC recipe above stays documented in case the capacity play is ever needed again
+(e.g. a bigger quant).

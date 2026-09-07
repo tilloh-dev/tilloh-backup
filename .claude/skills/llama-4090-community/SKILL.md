@@ -111,6 +111,51 @@ Each entry: claim, source, and its status against our own measurements.
     DeepSeek pattern (we set `fit = off` deliberately; see
     `docs/llama-operations.md`).
 
+## Findings update (researched 2026-09-06, build 10786 on hermine)
+
+11. **NVIDIA sysmem fallback is the mechanism behind our "overcommit" collapses.**
+    Since driver 536.40 the Windows driver silently spills CUDA allocations that
+    no longer fit into system RAM ("shared GPU memory") instead of throwing OOM —
+    tokens/sec falls off a cliff, `nvidia-smi` "used" keeps looking normal
+    (runaihome.com sysmem-fallback writeup; matches our 2026-09-06 measurements:
+    Qwen3.8-27B@262144 loads but pp drops 2600→2000 and prose 66-76→50-52 while
+    "free" reads the same ~580 MiB as the healthy 245760 load). **Fix candidate,
+    unmeasured: NVIDIA Control Panel → Manage 3D Settings → CUDA Sysmem Fallback
+    Policy → "Prefer No Sysmem Fallback"** — converts silent throttling into loud
+    OOM, matching this repo's fit=off philosophy. User-level Windows setting.
+12. **sudoingX/qwen38-mtp paired benchmarks put our numbers at the top of the
+    documented 4090 range**: their 4090 reference is 47.7 → 76.3 t/s with MTP
+    (q4_0 KV, short probes); we measure 66-76 prose at q8_0 KV@131k and at
+    q4_0@229376. Two of their levers disagree with our presets and are cheap
+    A/Bs: **`spec-draft-n-max = 2`** (their per-card sweet spot is 2-4 and their
+    4090 best ran n-max 2; ours is 3) and their p-min finding (helps
+    bandwidth-starved cards, hurts fast ones) confirms our local p-min=0.5 loss.
+    Also their rule 7 ("shared desktops halve throughput silently") corroborates
+    the GT-610 display offload already done on hermine.
+13. **Engine ceiling context**: a patched vLLM W4A16 stack reports ~114 t/s for
+    this model on a 3090 (Medium, data-science-collective) — other engines beat
+    llama.cpp here, but are out of scope (official-builds policy). ik_llama.cpp
+    fork likewise excluded. llama.cpp releases up to b10819 (2026-09-05) carry
+    nothing qwen35-dense/CUDA-decode-specific beyond b10786.
+14. **MoE counter-example on file**: independent HackMD test (Qwen3.6-35B-A3B,
+    RTX 3090) found *every* spec-decode mode at or below baseline — consistent
+    with this repo's Nemotron/Ornith-1.5 MoE findings; dense-vs-MoE remains the
+    predictor for whether speculation pays.
+
+15. **Lever sweep measured 2026-09-06 (build 10786, Qwen3.8-27B UD-Q4_K_S@131k/q8_0)**,
+    closing several open statuses above: `spec-draft-n-max 2` (item 12) — no gain
+    over 3 within day noise. `ngram-map-k4v` n16/m24 (item 6) — measured *worse*
+    than ngram-mod on verbatim rewrites (191–200 vs 231–447 t/s; drafts cap at
+    ~10-token blocks); Lirezh's paraphrase case untested. `ctx-checkpoints`
+    (item 4) — **already the build default (32)**, countzero's key is a no-op;
+    measured value: history-edit reprocess 510 tok/0.36 s with checkpoints vs
+    19315 tok/7.3 s with `--ctx-checkpoints 0` (~20×), reprocess starts at the
+    exact divergence point so a finer `checkpoint-min-step` buys nothing.
+    `cache-ram 16384` survives an A/B/A alternation of two ~14k sessions
+    (third request prompt_n=4) — countzero's 51200 not adopted. `image-min-tokens
+    = 1024` (item 5) — adopted, no speed/VRAM regression. Details:
+    `docs/models/Qwen3.8-27B.md`.
+
 ## Rules
 
 - Never write a community value into a preset without a local measurement or
