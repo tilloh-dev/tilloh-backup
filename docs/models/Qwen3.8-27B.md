@@ -122,3 +122,11 @@ not representative). `load-mode`/`kv-unified` deliberately absent: untested here
 tested config ran without them (mmap default loaded 29.3 GiB in ~31 s warm). The mmproj stays
 on CPU (`mmproj-offload = false`), same reasoning as the twins. RPC has no auth — LAN only;
 if lieselotte's rpc-server is down the load fails loudly (intended, same as Flash-Next).
+
+## DFlash2 speculation section (added 2026-09-05, unmeasured)
+
+`[Qwen3.8-27B-UD-Q4_K_M-200ctx-q4_0-dflash2]` is an **experimental** twin of the 200ctx MTP section: same target GGUF, ctx 200000, q4_0/q4_0 KV, thinking sampling, mmproj on CPU — but `spec-type = draft-dflash` with the external block-diffusion drafter `incoai/Qwen3.8-27B-DFlash2-GGUF` (Q4_K_M, 1.1 GB, added to `models.list`) instead of the embedded MTP head. `spec-draft-n-max = 7` and the Q4_K_M drafter follow the drafter's HF card (incoai/Qwen3.8-27B-DFlash2-GGUF); draft KV q4_0/q4_0 follows the only other dflash section in this file (Muse-Glimmer-30B).
+
+Upstream status: dflash support landed in stock llama.cpp via PR #27816 (merged 2026-08-27), so the prebuilt bootstrap build picks it up; the "build from PR #27342" instructions on the HF card are stale.
+
+**Nothing on this box is measured yet:** whether 200k + target + drafter + draft KV fits in 24 GB (the MTP section alone already needed ~2.6 GiB of embedded-head overhead at 229376; the external drafter adds its own 1.1 GB weights + KV), and whether dflash beats the 1.85× MTP number on this model. The drafter card reports GSM8K acceptance length ~5.1–5.4 (Q4_K_M: 5.39) on the *ggml-org* Q4_K_M target at their sampling settings — a different target quant, different engine, not comparable to the hermine MTP runs. First load should go through `llama-fit-params` / real `nvidia-smi`, and an A/B short-probe against the 200ctx MTP section before this section is trusted or wired into any OpenCode provider.

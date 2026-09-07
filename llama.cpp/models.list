@@ -15,6 +15,7 @@ unsloth/Qwen3.8-27B-GGUF              | Qwen3.8-27B-UD-Q4_K_XL.gguf         | Qw
 unsloth/Qwen3.8-27B-GGUF              | Qwen3.8-27B-UD-Q8_K_XL.gguf        | Qwen3.8-27B
 unsloth/Qwen3.8-27B-GGUF              | MTP/mtp-Qwen3.8-27B-Q4_0.gguf      | Qwen3.8-27B
 unsloth/Qwen3.8-27B-GGUF              | mmproj-F16.gguf                    | Qwen3.8-27B
+incoai/Qwen3.8-27B-DFlash2-GGUF       | Qwen3.8-27B-DFlash2-Q4_K_M.gguf    | Qwen3.8-27B
 unsloth/Qwen3.6-27B-MTP-GGUF          | Qwen3.6-27B-IQ4_XS.gguf            | Qwen3.6-27B
 unsloth/Qwen3.6-35B-A3B-MTP-GGUF      | Qwen3.6-35B-A3B-UD-IQ4_XS.gguf     | Qwen3.6-35B-A3B
 unsloth/gemma-4-26B-A4B-it-qat-GGUF   | gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf | gemma-4-26B-A4B
