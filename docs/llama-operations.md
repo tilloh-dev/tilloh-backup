@@ -122,3 +122,29 @@ theoretical, ~70–80 real. Relevant because Flash-Next-class CPU-MoE decode is 
 (~2–2.5 GB expert reads/token → ~30 t/s physical ceiling on this box) and because ggml's
 spin barriers make E-cores gate P-cores: `threads = 8` (P-only) measured fastest for CPU-MoE,
 12/16/24 all slower (see docs/models/Qwen3.8-Flash-Next.md, 2026-09-07 retune).
+
+## Router auto-discovery: where the `unsloth/gemma-4-E4B-it-GGUF:Q4_K_XL` entry comes from (2026-09-07)
+
+The router lists models from **three** sources, not just `models.ini`: custom presets (INI),
+local presets (`--models-dir` scan), and **"cached model presets"** — auto-discovered entries
+from llama.cpp's HF model cache (`LLAMA_CACHE`, default `~/.cache/llama.cpp` / Mac
+`~/Library/Caches/llama.cpp` / Windows `%LOCALAPPDATA%\llama.cpp`). The gemma-4-E4B entry is
+such a cache remnant (someone once ran `-hf unsloth/gemma-4-E4B-it-GGUF:Q4_K_XL`); the
+router's `/models` endpoint confirms it: `"source": "cache"`, `"can_remove": true`, status
+`unloaded` — it is **inert** until explicitly requested, at which point the router would
+(re-)download it from HF. RESOLVED same day (user found the path via WebUI after loading the entry): the cache is the
+**standard HuggingFace hub cache** `C:\Users\Anwender\.cache\huggingface\hub\models--unsloth--gemma-4-E4B-it-GGUF`
+(12 GB, full snapshot layout) — newer llama.cpp builds share the HF hub cache instead of a
+llama.cpp-own directory; the hub cache also holds unrelated FLUX image models, so never clear it
+wholesale. Deleting the one `models--…` directory removes the router entry (after router
+restart). Historical note, superseded: the actual cache file could not initially be located
+(`%LOCALAPPDATA%\llama.cpp` holds only `models/`, Windows-home `.cache` does not exist,
+`LLAMA_CACHE` is unset in the configs) — possibly a metadata-only manifest somewhere not
+searched, or reconstructed from a source b10786 does not surface. The remove API apparently
+does not exist yet on b10786 (`DELETE /models/<id>`, `DELETE /v1/models/<id>`,
+`POST /models/remove` all 404) despite `can_remove: true` — likely WebUI/newer-build
+functionality. Options if the entry should go: check the router WebUI for a delete control,
+retry the API after the next build update, or pin `LLAMA_CACHE` to an empty gitignored dir in
+`server.sh`/`server.ps1` so cache discovery is deterministic (models would then be managed by
+`models.ini` only — not done, user decision).
+
