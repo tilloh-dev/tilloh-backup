@@ -16,9 +16,10 @@ tooling/
 │   ├── llama-operations.md          # Cross-model measurements, hermine hardware
 │   ├── llama-recommend-sh.md        # recommend.sh rewrite history
 │   └── opencode.md                  # Guard, permissions, provider findings
-├── .opencode/skills/                # Project-local skills (OpenCode reads these)
+├── .claude/skills/                  # Project-local skills (Claude Code reads these)
 │   ├── llama-preset/                # models.ini section generator + recommend.sh
-│   └── llama-4090-community/        # Community tuning levers for 24GB/4090 (read by llama-preset)
+│   ├── llama-4090-community/        # Community tuning levers for 24GB/4090 (read by llama-preset)
+│   └── claudelocal-models/          # Syncs the claudelocal modelPicker with /v1/models
 ├── bashrc-backup/                   # Bash config to deploy to ~
 │   ├── .bashrc                      # PS1 + sources aliases/functions
 │   ├── .bashrc-aliases              # All shell aliases
@@ -142,7 +143,8 @@ doc file; this file only carries the one-line summary.
 
 ## Claude Code config notes
 
-- Skills: `commit-push`, `grill-me`, and `docs`.
+- Skills: `commit-push`, `grill-me`, and `docs` (global, from `claude-backup/`); `llama-preset`, `llama-4090-community` and `claudelocal-models` (project-local, in `.claude/skills/`).
+- **`claudelocal` runs Claude Code against hermine's llama.cpp router**: `claude --settings ~/.claude/settings.local.json` (alias in `bashrc-backup/.bashrc-aliases`), backed up here as `claude-backup/.claude/settings.local.json` (gitignored). Its `modelPicker` block is what makes the local models selectable with `/model`. Two constraints, read out of the 2.1.263 binary: `modelPicker` is honored **only** from managed settings, `--settings`/SDK and user settings — never from a project checkout, and `~/.claude/settings.local.json` is not user settings either, so the alias's `--settings` is the only path that works; and the key needs Claude Code ≥ 2.1.245, `behavesAs` ≥ 2.1.263 (2.1.236 ignores it silently). Keep the list in sync with the `claudelocal-models` skill rather than by hand — it also warns when `ANTHROPIC_MODEL` is no longer served, which is how a dead ID sat in the file from 2026-09-06 to 2026-09-07.
 - `docs` creates or revises concise documentation for GitHub Markdown, Confluence Cloud, and AFFiNE. Its `SKILL.md` stays compact; document-type, platform, and accessible-SVG guidance lives in references loaded only when needed. The skill is available automatically for matching tasks and explicitly as `/docs`.
 
 ## llama.cpp config notes
@@ -164,7 +166,7 @@ doc file; this file only carries the one-line summary.
 - Models are **never** committed: `.gitignore` excludes `llama.cpp/{vendor,cache}/`, `config.env`, `presets/models.ini`, and `**/*.gguf`.
 - **`presets/models.ini` is kept comment-free — the user deletes `#` comments from it on sight.** Rationale goes into `models.example.ini` (tracked, comment-friendly) and the model's file under `docs/models/`. Discovery story: `docs/llama-operations.md`.
 - OpenCode: the local `lieselotte` provider `baseURL` is `http://127.0.0.1:8081/v1`; the remote `hermine` provider points at `http://hermine:8081/v1`.
-- Skill `.opencode/skills/llama-preset/` (`scripts/recommend.sh`) generates/updates `models.ini` sections from measured hardware plus agentic defaults; substantially rewritten 2026-08-04 after a dozen real defects found by running it on this machine. Read `docs/llama-recommend-sh.md` before changing the script — it records each defect and the validation run. Known gap: it misses embedded MTP heads whose repo name lacks `-MTP-` (bit `Qwen3.8-27B`).
+- Skill `.claude/skills/llama-preset/` (`scripts/recommend.sh`) generates/updates `models.ini` sections from measured hardware plus agentic defaults; substantially rewritten 2026-08-04 after a dozen real defects found by running it on this machine. Read `docs/llama-recommend-sh.md` before changing the script — it records each defect and the validation run. Known gap: it misses embedded MTP heads whose repo name lacks `-MTP-` (bit `Qwen3.8-27B`).
 
 ## Conventions
 
@@ -172,7 +174,8 @@ doc file; this file only carries the one-line summary.
 - `.gitignore` excludes `.claude/settings.local.json`, `.playwright-mcp`, and the llama.cpp `vendor/`, `cache/`, `config.env`, `presets/models.ini`, and `*.gguf`.
 - Fresh machine setup order: SSH → clone repo → `bashrc-backup/install.bash` → Claude Code → `claude-backup/install.sh` → `opencode-backup/install.sh` → authenticate MCPs → (optional) `llama.cpp/bootstrap.sh`.
 - Only **official** llama.cpp builds go into `llama.cpp/vendor/` — the releases `bootstrap.sh` fetches from `ggml-org/llama.cpp`. Vendor forks are not used even when they ship prebuilt binaries and even when they are the only way to run a model's advertised feature; the Ternary-Bonsai DSpark drafter is the case that established this. `bootstrap.sh` always installs into the fixed `vendor/llama.cpp` and `rm -rf`s it first, so a second build can never appear there by accident — which is what keeps the plain `find vendor/ -name llama-server*` in `server.sh` and `recommend.sh` unambiguous.
-- Any work on `llama.cpp/presets/*.ini` — adding a section, retuning an existing one, or diagnosing a model's context/speed — goes through the `llama-preset` skill (`.opencode/skills/llama-preset/`) **first**. This bullet exists because description-based skill triggering undertriggers while an `AGENTS.md` line is loaded in every session; the skill is also project-local, so it is invisible outside this repo. Do not hand-write a preset value that `recommend.sh` would have measured — and do overrule the script when a hand measurement contradicts it, recording both numbers. Measuring throughput of an already-configured model belongs to the neighbouring skill `tilloh-local-llm-bench` instead.
+- Any work on `llama.cpp/presets/*.ini` — adding a section, retuning an existing one, or diagnosing a model's context/speed — goes through the `llama-preset` skill (`.claude/skills/llama-preset/`) **first**. This bullet exists because description-based skill triggering undertriggers while an `AGENTS.md` line is loaded in every session; the skill is also project-local, so it is invisible outside this repo. Do not hand-write a preset value that `recommend.sh` would have measured — and do overrule the script when a hand measurement contradicts it, recording both numbers. Measuring throughput of an already-configured model belongs to the neighbouring skill `tilloh-local-llm-bench` instead.
+- Any change to the `modelPicker` list in `claude-backup/.claude/settings.local.json` goes through the `claudelocal-models` skill (`.claude/skills/claudelocal-models/`), for the same undertriggering reason as the bullet above. It reads the router instead of the preset file, so it also catches sections that `models.ini` still has but a not-yet-restarted router does not serve. Hand-written labels and descriptions in existing rows are preserved — do not let a sync flatten them.
 - Verification here is cheap in consequence and expensive in time: loading a 16 GB model and reading `nvidia-smi` costs minutes but changes nothing. Spend those minutes instead of asking. Ask first only when verifying means stopping something the user is currently running (a live `llama-server`, for instance).
 - Prefer running the tool that reports a number over deriving it by arithmetic. `llama-fit-params` plus a real prompt run beats KV-per-token estimates — the estimates were wrong by enough to matter. A measurement that contradicts your model of the system is the interesting result, not an error to explain away.
 - State what you could not verify rather than smoothing over it. Numbers that hold on one machine and were never tested on the other are marked as untested (e.g. whether the mixed-KV collapse also affects Vulkan/lieselotte). An unverified claim presented as fact is worse than an admitted gap, because the next reader has no way to tell.
