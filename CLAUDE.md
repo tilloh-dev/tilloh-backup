@@ -43,6 +43,10 @@ tooling/
 │   ├── presets/models.example.ini   # Router preset template
 │   ├── PLAN.md / README.md          # Design + usage
 │   └── vendor/ cache/               # Binaries + downloads (gitignored)
+├── vllm-backup/                     # Second engine (vLLM, WSL-only), measured & documented
+│   ├── config.env.example           # Model/port/ctx (copy to config.env)
+│   ├── install.sh / serve.sh        # venv+download / OpenAI server :8091
+│   └── README.md                    # Measured verdict vs llama.cpp (loses for this workload)
 └── fresh_linux/debian-based/
     └── bootstrap-guide.md           # New machine setup checklist
 ```
@@ -113,6 +117,7 @@ doc file; this file only carries the one-line summary.
 | Cross-model llama.cpp measurements, hermine hardware, WSL traps | `docs/llama-operations.md` |
 | recommend.sh rewrite history | `docs/llama-recommend-sh.md` |
 | OpenCode guard, permissions, provider findings | `docs/opencode.md` |
+| Inference-engine alternatives (vLLM measured, others assessed) | `docs/inference-engines.md` |
 
 ## OpenCode config notes
 
@@ -147,6 +152,7 @@ doc file; this file only carries the one-line summary.
 ## llama.cpp config notes
 
 - Linux/Pop!_OS adaptation of `countzero/windows_llama.cpp`; **Vulkan** backend, **prebuilt** binaries (no compiler/conda).
+- **Engine choice is measured, not habit**: stock vLLM (0.28, W4A16, WSL) loses on this box for single-user agentics — 46 t/s decode, max ctx 3.5k vs llama.cpp's 72–82 t/s @262k; the fast community vLLM stacks are patched forks. Details + when to revisit: `docs/inference-engines.md`; working setup in `vllm-backup/`.
 - Scope: run already-built GGUF models only (no quantization/conversion).
 - `bootstrap.sh` downloads `llama-<tag>-bin-ubuntu-vulkan-<arch>.tar.gz` into `vendor/` (idempotent, `--force` to reinstall).
 - `download-model.sh` pulls GGUFs to `$LLAMA_MODELS_DIR` (default `~/.local/share/llama.cpp/models`, outside the repo); prefers `hf`/`huggingface-cli`, falls back to `curl`; manifest `models.list`.
