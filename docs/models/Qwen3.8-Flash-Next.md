@@ -259,3 +259,52 @@ challenger role is quality-per-token, not speed. MTP for qwen4exp remains an unm
 (#27836, checked 2026-09-07) — the biggest known future lever; re-check upstream periodically.
 The old RPC recipe above stays documented in case the capacity play is ever needed again
 (e.g. a bigger quant).
+
+## MTP tested via PR build (2026-09-08): loses on the CPU-expert topology despite 0.7–0.99 acceptance
+
+User-requested one-off test of the unmerged qwen4exp-MTP support, **without touching vendor/**:
+unsloth's prebuilt **b10830-mix** (upstream b10830 + their PR #144 "MTP for Qwen3.8-Flash-Next",
+self-contained Windows-CUDA-12 zip) extracted to `E:/Llama.cpp/test-builds/b10830-mix/` — a
+fork build used for measurement only, never wired into presets (official-builds policy intact).
+Shared-Q8_0 sidecar drafter from disk; the standing tuned local config as base
+(`-t 8 -tb 24 -ub/-b 1024`, fit=on, ctx 261888).
+
+| Run (same probes as the 09-07 retune) | prose tg | tg @19.3k | notes |
+|---|---|---|---|
+| A: mix build, no MTP (control) | 19.9–22.1 | 22.7–22.9 | b10830 ≈ b10786, no drift |
+| B: draft-mtp n-max 2, fit-target 1024 | 1.3–17.9 (wild) | 12.9–14.1 | fit could not pre-measure the shared drafter ("fitting without it") → only ~570 MiB free → sysmem spill |
+| B′: same + fit-target 4096 | 10.6–22.5 (unstable) | 7.0–19.1 | ~920 MiB free; acceptance 0.56–0.99 |
+| C: PR recipe — n-max 3, p-min 0.7, `--spec-draft-backend-sampling`, env `LLAMA_STATE_SEQ_FLAGS_ON_DEVICE=1` | 15.6–17.7 | 13.9–15.5 | ~1.1 GiB free; acceptance 0.70–0.99, mean len up to 3.98; only verbatim rewrite2 (27.6) beat baseline. Whether the env flag reached the Windows process is unverified (no log echo) |
+
+**Verdict: net loss vs the 22.8 t/s no-spec baseline in every configuration**, with *excellent*
+acceptance — the drafts are good, the verify step is what costs. Mechanism (consistent with the
+3060 community video: "bought less than one token — the bottleneck is the CPU side, and a draft
+head doesn't change that"): on a **RAM-bandwidth-bound CPU-expert MoE, a verify batch of n
+tokens reads ~n× the expert weights** (each token routes to different experts), so speculative
+decoding amortizes nothing here — unlike dense GPU-resident targets, it only adds draft
+overhead. The 2026-09-03 prognosis in this file ("plausible or conservative for this setup")
+was written for the *RPC* topology (fixed per-token sync cost to amortize) and does **not**
+transfer to the local CPU-MoE topology. Consequence: **when qwen4exp-MTP merges upstream, do
+not adopt it for this section** — it stays interesting only for GPU-resident qwen4exp targets
+(or a future config where the experts live in VRAM). The test build stays in
+`E:/Llama.cpp/test-builds/` (delete freely; ~700 MB unpacked).
+
+### Addendum (2026-09-08, same day): the PR's on-device-state fix does NOT rescue MTP here
+
+The PR discussion contains a 6-line fix (JayToltTech/llama.cpp#1: OR `LLAMA_STATE_SEQ_FLAGS_ON_DEVICE`
+into the spec-checkpoint update/load calls in `server-context.cpp`) that took a 3090 + `--n-cpu-moe 40`
+rig from 11.0 → 17.7 t/s (+61 %, break-even vs its 17.0 baseline). Note: runs B/C above used it as an
+*env var* — it is a **code change**, so run C never actually tested it. Tested properly on user request:
+VS 2022 Build Tools + CMake/Ninja installed on hermine (winget; the box now has a full Windows-CUDA
+build toolchain — MSVC 19.44 + CUDA 13.2, `CMAKE_CUDA_ARCHITECTURES=89` builds llama-server in ~15 min),
+b10840-mix source + patch built to `E:/Llama.cpp/test-builds/src/build/bin/`.
+
+Result (same-hour control, creep baseline ~2.1 GB): **no-MTP control 19.4–21.7 prose vs MTP+fix
+14.2–15.0 prose / 11.9–18.8 @19.3k** — acceptance again 0.74–0.99. The fix does not close the gap on
+this box: after removing the checkpoint cost, a large verify-side cost remains, consistent with the
+n×-expert-reads mechanism above (and with the PR comment "per-round checkpoint alone cannot explain
+the remaining gap"). The PR's recommended pairing — this fix **plus** a hot/cold expert-residency
+split (timadinorth/llama.cpp#1) for 24–26 t/s on the 3090 — is a fork-only expert cache, closed by the
+official-builds policy. **Verdict unchanged: do not adopt qwen4exp-MTP for this section when it merges**;
+revisit only if an expert-residency mechanism lands upstream. Patched test build kept in
+`E:/Llama.cpp/test-builds/src/` (source + build dir, deletable).
