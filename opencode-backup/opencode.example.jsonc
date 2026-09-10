@@ -2,104 +2,14 @@
   "$schema": "https://opencode.ai/config.json",
   "autoupdate": true,
   "plugin": ["opencode-claude-auth@latest"],
-  "enabled_providers": ["lieselotte", "hermine", "anthropic", "openrouter", "elektronengehirn"],
+  "enabled_providers": [
+    "lieselotte",
+    "hermine",
+    "anthropic",
+    "openrouter",
+    "elektronengehirn",
+    "openrouter"],
   "share": "disabled",
-  "permission": {
-      "*": "ask",
-      "bash": {
-        "*": "ask",
-        "kubectl get *": "allow",
-        "kubectl describe *": "allow",
-        "kubectl logs *": "allow",
-        "kubectl explain *": "allow",
-        "kubectl top *": "allow",
-        "kubectl version *": "allow",
-        "kubectl cluster-info *": "allow",
-        "kubectl api-resources *": "allow",
-        "kubectl api-versions *": "allow",
-        "gh pr list *": "allow",
-        "gh pr view *": "allow",
-        "gh pr status *": "allow",
-        "gh pr checks *": "allow",
-        "gh pr diff *": "allow",
-        "gh pr comment list *": "allow",
-        "gh workflow list *": "allow",
-        "gh workflow view *": "allow",
-        "gh release list *": "allow",
-        "gh release view *": "allow",
-        "gh repo view *": "allow",
-        "aws eks describe *": "allow",
-        "aws eks list *": "allow",
-        "aws ec2 describe *": "allow",
-        "aws s3 ls *": "allow",
-        "aws iam list *": "allow",
-        "aws iam get *": "allow",
-        "aws cloudwatch get *": "allow",
-        "aws sts get-caller-identity *": "allow",
-        "flux get *": "allow",
-        "flux logs *": "allow",
-        "helm list *": "allow",
-        "helm status *": "allow",
-        "helm get *": "allow",
-        "helm history *": "allow",
-        "helm show *": "allow",
-        "git log *": "allow",
-        "git status *": "allow",
-        "git diff *": "allow",
-        "git show *": "allow",
-        "docker ps *": "allow",
-        "docker logs *": "allow",
-        "ls *": "allow"
-      },
-      "edit": "ask",
-      "glob": "allow",
-      "grep": "allow",
-      "read": {
-        "*": "allow",
-        "*.env": "deny",
-        "*.env.*": "deny",
-        "*.env.example": "allow",
-        "*.env.default": "allow"
-      },
-      "playwright_browser_navigate": "allow",
-      "playwright_browser_snapshot": "allow",
-      "playwright_browser_take_screenshot": "allow",
-      "playwright_browser_console_messages": "allow",
-      "playwright_browser_network_requests": "allow",
-      "playwright_browser_evaluate": "allow",
-      "playwright_browser_hover": "allow",
-      "playwright_browser_wait_for": "allow",
-      "atlassian_atlassianUserInfo": "allow",
-      "atlassian_getAccessibleAtlassianResources": "allow",
-      "atlassian_getConfluencePage": "allow",
-      "atlassian_searchConfluenceUsingCql": "allow",
-      "atlassian_searchJiraIssuesUsingJql": "allow",
-      "atlassian_getConfluenceSpaces": "allow",
-      "atlassian_getPagesInConfluenceSpace": "allow",
-      "atlassian_getConfluencePageFooterComments": "allow",
-      "atlassian_getConfluencePageInlineComments": "allow",
-      "atlassian_getConfluenceCommentChildren": "allow",
-      "atlassian_getConfluencePageDescendants": "allow",
-      "atlassian_getJiraIssue": "allow",
-      "atlassian_getTransitionsForJiraIssue": "allow",
-      "atlassian_getJiraIssueRemoteIssueLinks": "allow",
-      "atlassian_getVisibleJiraProjects": "allow",
-      "atlassian_getJiraProjectIssueTypesMetadata": "allow",
-      "atlassian_getJiraIssueTypeMetaWithFields": "allow",
-      "atlassian_getIssueLinkTypes": "allow",
-      "atlassian_search": "allow",
-      "atlassian_fetch": "allow",
-      "atlassian_lookupJiraAccountId": "allow",
-      "external_directory": {
-        "*": "allow"
-      },
-      "webfetch": "allow",
-      "websearch": "allow",
-      "codesearch": "allow",
-      "todowrite": "allow",
-      "skill": "allow",
-      "question": "allow"
-  },
   "mcp": {
     "atlassian": {
       "type": "remote",
@@ -114,6 +24,51 @@
     }
   },
   "provider": {
+    "openrouter": {
+      "options": {
+        "apiKey": "{env:OPENROUTER_API_KEY}"
+      },
+      "whitelist": [
+        "deepseek/deepseek-v4-pro-0813",
+        "deepseek/deepseek-v4-flash-0731",
+        "z-ai/glm-5.3-flash"
+      ],
+      "models": {
+        "deepseek/deepseek-v4-pro-0813": {
+          "options": {
+            "provider": {
+              "only": [
+                "nextbit"
+              ],
+              "allow_fallbacks": false,
+              "data_collection": "deny"
+            }
+          }
+        },
+        "deepseek/deepseek-v4-flash-0731": {
+          "options": {
+            "provider": {
+              "only": [
+                "nextbit"
+              ],
+              "allow_fallbacks": false,
+              "data_collection": "deny"
+            }
+          }
+        },
+        "z-ai/glm-5.3-flash": {
+          "options": {
+            "provider": {
+              "only": [
+                "nextbit"
+              ],
+              "allow_fallbacks": false,
+              "data_collection": "deny"
+            }
+          }
+        }
+      }
+    },
     "lieselotte": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "llama.cpp (lieselotte)",
@@ -122,32 +77,20 @@
         "apiKey": "no-key"
       },
       "models": {
-        "Qwen3.6-27B": {
-          "name": "Qwen3.6 27B Dense MTP",
-          "modalities": {"input": ["text"], "output": ["text"]}
-        },
-        "Qwen3.6-35B-A3B": {
-          "name": "Qwen3.6 35B-A3B MoE",
-          "modalities": {"input": ["text"], "output": ["text"]}
-        },
-        "gemma-4-26B-A4B": {
-          "name": "Gemma 4 26B-A4B",
+        "Qwen3.8-27B": {
+          "name": "Qwen3.8 27B Dense 27B VLM, GSQ-RCO IQ3_S, 262k ctx",
           "modalities": {"input": ["text", "image"], "output": ["text"]}
         },
-        "Ornith-1.0-9B": {
-          "name": "Ornith 1.0 9B Dense",
+        "Qwen3.8-Flash-Next": {
+          "name": "Qwen3.8 Flash Next 125B MoE (6B active) via mmap, 262k ctx, ~20-23 t/s",
+          "modalities": {"input": ["text", "image"], "output": ["text"]}
+        },
+        "Qwen3.6-35B-A3B": {
+          "name": "Qwen3.6 35B-A3B MoE, 262k ctx",
           "modalities": {"input": ["text"], "output": ["text"]}
         },
-        "Ornith-1.0-35B": {
-          "name": "Ornith 1.0 35B MoE",
-          "modalities": {"input": ["text"], "output": ["text"]}
-        },
-        "Qwen-AgentWorld-35B-A3B": {
-          "name": "Qwen-AgentWorld 35B-A3B World Model",
-          "modalities": {"input": ["text"], "output": ["text"]}
-        },
-        "gemma-4-31B": {
-          "name": "Gemma 4 31B Dense QAT + MTP",
+        "Ornith-1.5-35B-A3B": {
+          "name": "Ornith-1.5 35B-A3B MoE agentic coder, 164k ctx",
           "modalities": {"input": ["text", "image"], "output": ["text"]}
         },
         "Laguna-XS-2.1": {
@@ -163,7 +106,7 @@
           "modalities": {"input": ["text", "image"], "output": ["text"]}
         }
       },
-      "whitelist": ["Qwen3.6-27B", "Qwen3.6-35B-A3B", "gemma-4-26B-A4B", "Ornith-1.0-9B", "Ornith-1.0-35B", "Qwen-AgentWorld-35B-A3B", "gemma-4-31B", "Laguna-XS-2.1", "Ternary-Bonsai-27B", "Muse-Glimmer-30B"]
+      "whitelist": ["Qwen3.8-27B", "Qwen3.8-Flash-Next", "Qwen3.6-35B-A3B", "Ornith-1.5-35B-A3B", "Laguna-XS-2.1", "Ternary-Bonsai-27B", "Muse-Glimmer-30B"]
     },
     "hermine": {
       "npm": "@ai-sdk/openai-compatible",
@@ -173,32 +116,20 @@
         "apiKey": "no-key"
       },
       "models": {
-        "Qwen3.6-27B": {
-          "name": "Qwen3.6 27B Dense MTP",
-          "modalities": {"input": ["text"], "output": ["text"]}
-        },
-        "Qwen3.6-35B-A3B": {
-          "name": "Qwen3.6 35B-A3B MoE",
-          "modalities": {"input": ["text"], "output": ["text"]}
-        },
-        "gemma-4-26B-A4B": {
-          "name": "Gemma 4 26B-A4B",
+        "Qwen3.8-27B": {
+          "name": "Qwen3.8 27B Dense 27B VLM, GSQ-RCO IQ3_S, 262k ctx",
           "modalities": {"input": ["text", "image"], "output": ["text"]}
         },
-        "Ornith-1.0-9B": {
-          "name": "Ornith 1.0 9B Dense",
+        "Qwen3.8-Flash-Next": {
+          "name": "Qwen3.8 Flash Next 125B MoE (6B active) via mmap, 262k ctx, ~20-23 t/s",
+          "modalities": {"input": ["text", "image"], "output": ["text"]}
+        },
+        "Qwen3.6-35B-A3B": {
+          "name": "Qwen3.6 35B-A3B MoE, 262k ctx",
           "modalities": {"input": ["text"], "output": ["text"]}
         },
-        "Ornith-1.0-35B": {
-          "name": "Ornith 1.0 35B MoE",
-          "modalities": {"input": ["text"], "output": ["text"]}
-        },
-        "Qwen-AgentWorld-35B-A3B": {
-          "name": "Qwen-AgentWorld 35B-A3B World Model",
-          "modalities": {"input": ["text"], "output": ["text"]}
-        },
-        "gemma-4-31B": {
-          "name": "Gemma 4 31B Dense QAT + MTP",
+        "Ornith-1.5-35B-A3B": {
+          "name": "Ornith-1.5 35B-A3B MoE agentic coder, 164k ctx",
           "modalities": {"input": ["text", "image"], "output": ["text"]}
         },
         "Laguna-XS-2.1": {
@@ -214,12 +145,7 @@
           "modalities": {"input": ["text", "image"], "output": ["text"]}
         }
       },
-      "whitelist": ["Qwen3.6-27B", "Qwen3.6-35B-A3B", "gemma-4-26B-A4B", "Ornith-1.0-9B", "Ornith-1.0-35B", "Qwen-AgentWorld-35B-A3B", "gemma-4-31B", "Laguna-XS-2.1", "Ternary-Bonsai-27B", "Muse-Glimmer-30B"]
-    },
-    "openrouter": {
-      "options": {
-        "apiKey": "{env:OPENROUTER_API_KEY}"
-      }
+      "whitelist": ["Qwen3.8-27B", "Qwen3.8-Flash-Next", "Qwen3.6-35B-A3B", "Ornith-1.5-35B-A3B", "Laguna-XS-2.1", "Ternary-Bonsai-27B", "Muse-Glimmer-30B"]
     },
     "elektronengehirn": {
       "npm": "@ai-sdk/openai-compatible",
