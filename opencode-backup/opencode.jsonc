@@ -2,7 +2,13 @@
   "$schema": "https://opencode.ai/config.json",
   "autoupdate": true,
   "plugin": ["opencode-claude-auth@latest"],
-  "enabled_providers": ["lieselotte", "hermine", "anthropic", "elektronengehirn"],
+  "enabled_providers": [
+    "lieselotte",
+    "hermine",
+    "anthropic",
+    "elektronengehirn",
+    "openrouter"
+  ],
   "share": "disabled",
   "mcp": {
     "atlassian": {
@@ -18,6 +24,63 @@
     }
   },
   "provider": {
+    "openrouter": {
+      "options": {
+        "apiKey": "{env:OPENROUTER_API_KEY}"
+      },
+      "whitelist": [
+        "deepseek/deepseek-v4-pro-0813",
+        "deepseek/deepseek-v4-flash-0731",
+        "deepseek/deepseek-v4.1-flash",
+        "z-ai/glm-5.3-flash"
+      ],
+      "models": {
+        "deepseek/deepseek-v4-pro-0813": {
+          "options": {
+            "provider": {
+              "only": [
+                "nextbit"
+              ],
+              "allow_fallbacks": false,
+              "data_collection": "deny"
+            }
+          }
+        },
+        "deepseek/deepseek-v4-flash-0731": {
+          "options": {
+            "provider": {
+              "only": [
+                "nextbit"
+              ],
+              "allow_fallbacks": false,
+              "data_collection": "deny"
+            }
+          }
+        },
+        "deepseek/deepseek-v4.1-flash": {
+          "options": {
+            "provider": {
+              "only": [
+                "novita"
+              ],
+              "allow_fallbacks": false,
+              "data_collection": "deny"
+            }
+          }
+        },
+        "z-ai/glm-5.3-flash": {
+          "options": {
+            "provider": {
+              "only": [
+                "nextbit"
+              ],
+              "allow_fallbacks": false,
+              "data_collection": "deny"
+            }
+          }
+        }
+      }
+    },
     "lieselotte": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "llama.cpp (lieselotte)",
@@ -27,39 +90,19 @@
       },
       "models": {
         "Qwen3.8-27B": {
-          "name": "Qwen3.8 27B Dense MTP",
-          "modalities": {"input": ["text", "image", "video"], "output": ["text"]}
-        },
-        "Qwen3.6-27B": {
-          "name": "Qwen3.6 27B Dense MTP",
-          "modalities": {"input": ["text"], "output": ["text"]}
-        },
-        "Qwen3.6-35B-A3B": {
-          "name": "Qwen3.6 35B-A3B MoE",
-          "modalities": {"input": ["text"], "output": ["text"]}
-        },
-        "gemma-4-26B-A4B": {
-          "name": "Gemma 4 26B-A4B",
+          "name": "Qwen3.8 27B Dense 27B VLM, GSQ-RCO IQ3_S, 262k ctx",
           "modalities": {"input": ["text", "image"], "output": ["text"]}
         },
-        "Ornith-1.0-9B": {
-          "name": "Ornith 1.0 9B Dense",
-          "modalities": {"input": ["text"], "output": ["text"]}
+        "Qwen3.8-Flash-Next": {
+          "name": "Qwen3.8 Flash Next 125B MoE (6B active) via mmap, 262k ctx, ~20-23 t/s",
+          "modalities": {"input": ["text", "image"], "output": ["text"]}
         },
-        "Ornith-1.0-35B": {
-          "name": "Ornith 1.0 35B MoE",
+        "Qwen3.6-35B-A3B": {
+          "name": "Qwen3.6 35B-A3B MoE, 262k ctx",
           "modalities": {"input": ["text"], "output": ["text"]}
         },
         "Ornith-1.5-35B-A3B": {
-          "name": "Ornith 1.5 35B-A3B MoE Agentic Coder",
-          "modalities": {"input": ["text"], "output": ["text"]}
-        },
-        "Qwen-AgentWorld-35B-A3B": {
-          "name": "Qwen-AgentWorld 35B-A3B World Model",
-          "modalities": {"input": ["text"], "output": ["text"]}
-        },
-        "gemma-4-31B": {
-          "name": "Gemma 4 31B Dense QAT + MTP",
+          "name": "Ornith-1.5 35B-A3B MoE agentic coder, 164k ctx",
           "modalities": {"input": ["text", "image"], "output": ["text"]}
         },
         "Laguna-XS-2.1": {
@@ -73,13 +116,9 @@
         "Muse-Glimmer-30B": {
           "name": "Muse Glimmer 30B Dense Agentic + DFlash",
           "modalities": {"input": ["text", "image"], "output": ["text"]}
-        },
-        "Nemotron-3.5-Lightning-30B-A3B": {
-          "name": "Nemotron 3.5 Lightning 30B-A3B Mamba2 Hybrid",
-          "modalities": {"input": ["text"], "output": ["text"]}
         }
       },
-      "whitelist": ["Qwen3.8-27B", "Qwen3.6-27B", "Qwen3.6-35B-A3B", "gemma-4-26B-A4B", "Ornith-1.0-9B", "Ornith-1.0-35B", "Ornith-1.5-35B-A3B", "Qwen-AgentWorld-35B-A3B", "gemma-4-31B", "Laguna-XS-2.1", "Ternary-Bonsai-27B", "Muse-Glimmer-30B", "Nemotron-3.5-Lightning-30B-A3B"]
+      "whitelist": ["Qwen3.8-27B", "Qwen3.8-Flash-Next", "Qwen3.6-35B-A3B", "Ornith-1.5-35B-A3B", "Laguna-XS-2.1", "Ternary-Bonsai-27B", "Muse-Glimmer-30B"]
     },
     "hermine": {
       "npm": "@ai-sdk/openai-compatible",
@@ -89,44 +128,20 @@
         "apiKey": "no-key"
       },
       "models": {
-        "Qwen3.8-27B-UD-Q4_K_M-200ctx-q4_0": {
-          "name": "Qwen3.8 27B Dense 200k q4_0",
-          "modalities": {"input": ["text", "image", "video"], "output": ["text"]}
-        },
-        "Qwen3.8-27B-UD-Q4_K_M-150ctx-q8_0": {
-          "name": "Qwen3.8 27B Dense 150k q8_0",
-          "modalities": {"input": ["text", "image", "video"], "output": ["text"]}
-        },
-        "Qwen3.6-27B": {
-          "name": "Qwen3.6 27B Dense MTP",
-          "modalities": {"input": ["text"], "output": ["text"]}
-        },
-        "Qwen3.6-35B-A3B": {
-          "name": "Qwen3.6 35B-A3B MoE",
-          "modalities": {"input": ["text"], "output": ["text"]}
-        },
-        "gemma-4-26B-A4B": {
-          "name": "Gemma 4 26B-A4B",
+        "Qwen3.8-27B": {
+          "name": "Qwen3.8 27B Dense 27B VLM, GSQ-RCO IQ3_S, 262k ctx",
           "modalities": {"input": ["text", "image"], "output": ["text"]}
         },
-        "Ornith-1.0-9B": {
-          "name": "Ornith 1.0 9B Dense",
-          "modalities": {"input": ["text"], "output": ["text"]}
+        "Qwen3.8-Flash-Next": {
+          "name": "Qwen3.8 Flash Next 125B MoE (6B active) via mmap, 262k ctx, ~20-23 t/s",
+          "modalities": {"input": ["text", "image"], "output": ["text"]}
         },
-        "Ornith-1.0-35B": {
-          "name": "Ornith 1.0 35B MoE",
+        "Qwen3.6-35B-A3B": {
+          "name": "Qwen3.6 35B-A3B MoE, 262k ctx",
           "modalities": {"input": ["text"], "output": ["text"]}
         },
         "Ornith-1.5-35B-A3B": {
-          "name": "Ornith 1.5 35B-A3B MoE Agentic Coder",
-          "modalities": {"input": ["text"], "output": ["text"]}
-        },
-        "Qwen-AgentWorld-35B-A3B": {
-          "name": "Qwen-AgentWorld 35B-A3B World Model",
-          "modalities": {"input": ["text"], "output": ["text"]}
-        },
-        "gemma-4-31B": {
-          "name": "Gemma 4 31B Dense QAT + MTP",
+          "name": "Ornith-1.5 35B-A3B MoE agentic coder, 164k ctx",
           "modalities": {"input": ["text", "image"], "output": ["text"]}
         },
         "Laguna-XS-2.1": {
@@ -140,18 +155,9 @@
         "Muse-Glimmer-30B": {
           "name": "Muse Glimmer 30B Dense Agentic + DFlash",
           "modalities": {"input": ["text", "image"], "output": ["text"]}
-        },
-        "Nemotron-3.5-Lightning-30B-A3B": {
-          "name": "Nemotron 3.5 Lightning 30B-A3B Mamba2 Hybrid",
-          "modalities": {"input": ["text"], "output": ["text"]}
         }
       },
-      "whitelist": ["Qwen3.8-27B-UD-Q4_K_M-200ctx-q4_0", "Qwen3.8-27B-UD-Q4_K_M-150ctx-q8_0", "Qwen3.6-27B", "Qwen3.6-35B-A3B", "gemma-4-26B-A4B", "Ornith-1.0-9B", "Ornith-1.0-35B", "Ornith-1.5-35B-A3B", "Qwen-AgentWorld-35B-A3B", "gemma-4-31B", "Laguna-XS-2.1", "Ternary-Bonsai-27B", "Muse-Glimmer-30B", "Nemotron-3.5-Lightning-30B-A3B", "Qwen3.8-27B-large"]
-    },
-    "openrouter": {
-      "options": {
-        "apiKey": "{env:OPENROUTER_API_KEY}"
-      }
+      "whitelist": ["Qwen3.8-27B", "Qwen3.8-Flash-Next", "Qwen3.6-35B-A3B", "Ornith-1.5-35B-A3B", "Laguna-XS-2.1", "Ternary-Bonsai-27B", "Muse-Glimmer-30B"]
     },
     "elektronengehirn": {
       "npm": "@ai-sdk/openai-compatible",

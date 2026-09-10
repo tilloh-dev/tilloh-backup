@@ -7,7 +7,8 @@
     "hermine",
     "anthropic",
     "elektronengehirn",
-    "openrouter"],
+    "openrouter"
+  ],
   "share": "disabled",
   "mcp": {
     "atlassian": {
@@ -30,6 +31,7 @@
       "whitelist": [
         "deepseek/deepseek-v4-pro-0813",
         "deepseek/deepseek-v4-flash-0731",
+        "deepseek/deepseek-v4.1-flash",
         "z-ai/glm-5.3-flash"
       ],
       "models": {
@@ -49,6 +51,17 @@
             "provider": {
               "only": [
                 "nextbit"
+              ],
+              "allow_fallbacks": false,
+              "data_collection": "deny"
+            }
+          }
+        },
+        "deepseek/deepseek-v4.1-flash": {
+          "options": {
+            "provider": {
+              "only": [
+                "novita"
               ],
               "allow_fallbacks": false,
               "data_collection": "deny"
