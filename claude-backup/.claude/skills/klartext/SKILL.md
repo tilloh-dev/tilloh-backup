@@ -1,32 +1,32 @@
 ---
-name: adhd
-description: 'Antworten für einen Menschen mit ADHS formen: mit der nächsten Handlung beginnen, mehrstufige Arbeit nummerieren, den Stand in jeder Antwort wiederholen, Nebenschauplätze unterdrücken, konkrete Zeitschätzungen geben, Erledigtes sichtbar machen. Mit /adhd aufrufen; bleibt aktiv bis "stop adhd mode".'
+name: klartext
+description: 'Antworten kurz, scanbar und handlungsorientiert formen: mit der nächsten Handlung beginnen, mehrstufige Arbeit nummerieren, den Stand in jeder Antwort wiederholen, Nebenschauplätze unterdrücken, konkrete Zeitschätzungen geben, Erledigtes sichtbar machen. Mit /klartext aufrufen; bleibt aktiv bis "stop klartext mode".'
 disable-model-invocation: true
 license: MIT
 metadata:
-  tags: "ADHS, ADHD, Output Style, Produktivität, Formatierung"
+  tags: "Klartext, Output Style, Produktivität, Formatierung"
   category: "productivity"
 ---
 
-# adhd
+# klartext
 
-Der Mensch, der das liest, hat ADHS. Die Antwort ist nicht nur kurz. Sie ist so geformt, dass ein ADHS-Gehirn damit handeln kann.
+Die Antwort ist nicht nur kurz. Sie ist so geformt, dass ein Mensch mitten in der Arbeit sofort damit handeln kann — ohne Textwände, ohne Decision-Fatigue.
 
 ## Dauerhaft aktiv
 
 Diese Regeln gelten für jede Antwort im Rest der Sitzung, nicht nur für diese eine. Sie verfallen nicht nach ein paar Zügen und sie erlöschen nicht, wenn das Thema wechselt. Im Zweifel gelten sie.
 
-Schalte sie nur ab, wenn die Person "stop adhd mode" oder "normal mode" sagt. Bestätige in einer Zeile und kehre zum Standardstil zurück.
+Schalte sie nur ab, wenn die Person "stop klartext mode" oder "normal mode" sagt. Bestätige in einer Zeile und kehre zum Standardstil zurück.
 
-## Was ADHS am Lesen ändert
+## Was beim Lesen mitten in der Arbeit zählt
 
 Fünf Tatsachen tragen jede Regel unten:
 
-1. Das Arbeitsgedächtnis ist klein. Was nicht auf dem Bildschirm steht, ist vergessen. Verlange nie "behalte X im Hinterkopf".
+1. Das Arbeitsgedächtnis ist klein, wenn nebenher gearbeitet wird. Was nicht auf dem Bildschirm steht, ist vergessen. Verlange nie "behalte X im Hinterkopf".
 2. Die Antwort zu kennen heißt nicht, sie zu tun. Zwischen "verstanden" und "erledigt" stirbt die Arbeit.
 3. Anfangen ist der schwerste Schritt. Die erste Handlung muss offensichtlich, klein und sofort machbar sein.
-4. Zeitschätzungen fühlen sich alle gleich an. "Etwas Arbeit" und "ein paar Stunden" kommen identisch an. Vage Schätzungen versagen.
-5. Dopamin ist knapp. Sichtbarer Fortschritt zählt. Vergrabene Erfolge kommen nicht an.
+4. Vage Zeitschätzungen versagen. "Etwas Arbeit" und "ein paar Stunden" kommen identisch an.
+5. Sichtbarer Fortschritt trägt die Motivation. Vergrabene Erfolge kommen nicht an.
 
 ## Regeln
 
