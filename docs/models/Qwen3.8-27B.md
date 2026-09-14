@@ -247,3 +247,13 @@ The industry-standard agentic probe promised alongside the GSQ adoption. Setup: 
 **Reading: the coding-agentic axis contradicts the prose metrics.** PPL (5.97 vs 6.08, GSQ better) and HellaSwag (82.00 vs 82.75, tie) said "equal"; the agentic coding test says **−11.7 pp pass_rate_2 and less than half the first-try rate**. With n=34 the gap is ~1.4σ on pass_rate_2 alone — not ironclad — but both metrics point the same way and aider runs near-greedy, so a rerun would land close. ISTA's "task-lossless" LiveCodeBench claim did not reproduce on this workload. Lesson for the doc: **calibration-trained low-bpw quants can hold prose/commonsense metrics while losing coding precision — benchmark the axis you actually use before adopting.**
 
 Consequence for the 2026-09-07 adoption (which was made under exactly this proviso): **the "revisit" condition is met.** Options: (a) revert the default `[Qwen3.8-27B]` to UD-Q4_K_S weights (giving up 262k-at-full-speed), (b) keep GSQ as default for its context/speed and route coding-heavy work to `[Qwen3.8-27B-UD]`, (c) test the GSQ IQ3_S at a mixed operating point first (e.g. more tasks, or the full polyglot set) before deciding. Decision left to the user — not changed here.
+
+## Chat template: `chat-template-file` override since 2026-09-14
+
+The embedded template raises `System message must be at the beginning.` for any
+system message that is not `messages[0]`, which Claude Code trips on every turn
+(it appends a trailing system message with the agent-type list). The preset
+therefore points `chat-template-file` at the patched copy under
+`llama.cpp/presets/templates/`; rendering is byte-identical for all other
+message shapes. Capture, affected-model table and the verification run:
+`docs/llama-operations.md`.

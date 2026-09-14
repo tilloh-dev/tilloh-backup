@@ -308,3 +308,13 @@ split (timadinorth/llama.cpp#1) for 24–26 t/s on the 3090 — is a fork-only e
 official-builds policy. **Verdict unchanged: do not adopt qwen4exp-MTP for this section when it merges**;
 revisit only if an expert-residency mechanism lands upstream. Patched test build kept in
 `E:/Llama.cpp/test-builds/src/` (source + build dir, deletable).
+
+## Chat template: `chat-template-file` override since 2026-09-14
+
+The embedded template raises `System message must be at the beginning.` for any
+system message that is not `messages[0]`, which Claude Code trips on every turn
+(it appends a trailing system message with the agent-type list). The preset
+therefore points `chat-template-file` at the patched copy under
+`llama.cpp/presets/templates/`; rendering is byte-identical for all other
+message shapes. Capture, affected-model table and the verification run:
+`docs/llama-operations.md`.

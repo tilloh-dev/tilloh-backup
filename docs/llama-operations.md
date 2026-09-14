@@ -148,3 +148,52 @@ retry the API after the next build update, or pin `LLAMA_CACHE` to an empty giti
 `server.sh`/`server.ps1` so cache discovery is deterministic (models would then be managed by
 `models.ini` only — not done, user decision).
 
+
+## Claude Code's trailing system message vs. the Qwen chat templates (2026-09-14)
+
+Every `claudelocal` turn against hermine's router returned HTTP 500 with
+`Jinja Exception: System message must be at the beginning.` (line 106 of the
+`Qwen3.8-27B` GSQ template). Cause, captured with a logging proxy in front of
+`hermine:8081` while a real `claude -p` session ran against it:
+
+- Claude Code posts to `/v1/messages?beta=true` with the harness prompt in the
+  top-level `system` field **and an extra `{"role": "system"}` message appended
+  at the END of `messages`** (content: the "Available agent types for the Agent
+  tool" listing). Captured shape: `roles = ["user", "system"]`.
+- llama.cpp's Anthropic adapter passes that role through verbatim. The Qwen
+  templates reject any system message that is not `messages[0]`, so the render
+  aborts before the model is ever reached. The one request in the capture
+  without the trailing block (`roles = ["user"]`) returned 200.
+
+Affected templates (checked by reading `tokenizer.chat_template` out of each
+GGUF listed in `models.ini`):
+
+| Model | Raise present |
+|-------|---------------|
+| `Qwen3.8-27B` (GSQ-RCO), `Qwen3.8-27B-UD`, `Qwen3.8-27B-UD-Q8_K_XL…rpc`, `Ternary-Bonsai-27B`, `Qwen3.8-Flash-Next` | yes |
+| `Qwen3.6-35B-A3B`, `Laguna-XS-2.1`, `Ornith-1.5-35B-A3B`, `Muse-Glimmer-30B` | no |
+
+Three distinct template variants exist among the affected five: the GSQ-RCO one
+(`not loop.first` guard), the Ternary-Bonsai one (same guard, different body),
+and one file shared **byte-identically** by `UD-Q4_K_S`, `UD-Q8_K_XL` and
+`Qwen3.8-Flash-Next` (`num_sys` guard, also covers `role == "developer"`).
+
+Fix: the templates were extracted to `llama.cpp/presets/templates/*.sysfix.jinja`
+with that single `raise_exception` replaced by rendering the message as its own
+`<|im_start|>system … <|im_end|>` turn, and wired in via `chat-template-file`.
+Verified by running two `llama-server` instances (CPU-only, `-ngl 0`, ctx 2048,
+same GGUF, one per template) and diffing `/apply-template` output: plain,
+multi-turn and tool-call conversations render **byte-identical** to the
+unpatched template; only the trailing-system case differs (error → rendered).
+A real `/v1/messages` request in the captured Claude Code shape returns 200 on
+the patched server and 500 on the unpatched one.
+
+Notes for the next reader:
+- This is a client-side quirk (the public Anthropic API has no system role
+  inside `messages`), so it will reappear for every model whose template
+  enforces the rule — check a new GGUF's template before adding a preset.
+- `llama-fit-params`-style probing is not needed here: the template is
+  model-independent at render time, so a patched file can be validated against
+  any loaded GGUF via `/apply-template`.
+- The patched files are tracked in the repo; `models.ini` is not. After
+  changing a template, the router must be restarted to pick it up.
