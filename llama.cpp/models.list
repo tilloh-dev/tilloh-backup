@@ -10,10 +10,9 @@
 # Downloads land in $LLAMA_MODELS_DIR (OUTSIDE this repo) and are never committed.
 
 # --- Your models -----------------------------------------------------------
-unsloth/Qwen3.8-27B-GGUF              | Qwen3.8-27B-UD-Q4_K_M.gguf         | Qwen3.8-27B
-unsloth/Qwen3.8-27B-GGUF              | Qwen3.8-27B-UD-Q4_K_S.gguf         | Qwen3.8-27B
 ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF  | Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf | Qwen3.8-27B
-unsloth/Qwen3.8-27B-GGUF              | Qwen3.8-27B-UD-Q4_K_XL.gguf         | Qwen3.8-27B
+unsloth/Qwen3.8-27B-GGUF              | Qwen3.8-27B-UD-Q3_K_XL.gguf         | Qwen3.8-27B
+unsloth/Qwen3.8-27B-GGUF              | Qwen3.8-27B-UD-Q4_K_S.gguf         | Qwen3.8-27B
 unsloth/Qwen3.8-27B-GGUF              | Qwen3.8-27B-UD-Q8_K_XL.gguf        | Qwen3.8-27B
 unsloth/Qwen3.8-27B-GGUF              | MTP/mtp-Qwen3.8-27B-Q4_0.gguf      | Qwen3.8-27B
 unsloth/Qwen3.8-27B-GGUF              | mmproj-F16.gguf                    | Qwen3.8-27B
