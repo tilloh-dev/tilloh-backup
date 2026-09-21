@@ -3,7 +3,7 @@
   "autoupdate": true,
   "plugin": ["opencode-claude-auth@latest"],
   "enabled_providers": [
-    "lieselotte",
+    "gertrude",
     "hermine",
     "anthropic",
     "elektronengehirn",
@@ -81,9 +81,9 @@
         }
       }
     },
-    "lieselotte": {
+    "gertrude": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "llama.cpp (lieselotte)",
+      "name": "llama.cpp (Gertrude)",
       "options": {
         "baseURL": "http://127.0.0.1:8081/v1",
         "apiKey": "no-key"

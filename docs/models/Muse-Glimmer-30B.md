@@ -1,4 +1,9 @@
 # Muse-Glimmer-30B
+
+> **Status: entfernt am 2026-09-21** (Nutzerentscheidung). Preset-Section aus
+> `llama.cpp/presets/models.ini` gestrichen, `models.list`-Zeilen auskommentiert,
+> die GGUFs (19 GB) von dieser Maschine geloescht. Diese Datei bleibt als Messprotokoll.
+
 > Extracted verbatim from AGENTS.md on 2026-08-15. "Above/below" references may point
 > to sibling files in this directory or back to AGENTS.md.
 

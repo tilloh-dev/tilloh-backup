@@ -1,5 +1,9 @@
 # HuggingFace download manifest for:  ./download-model.sh --all
 #
+# TEMPLATE — copy to "models.list" and edit. models.list is gitignored
+# (machine-specific: which models this box actually keeps on disk).
+# download-model.sh / .ps1 fall back to this file when models.list is missing.
+#
 # Format (pipe-separated):   repo_id | filename | dest_subdir
 #   - repo_id      HuggingFace repo, e.g. bartowski/gemma-2-9b-it-GGUF
 #   - filename     file inside that repo, e.g. gemma-2-9b-it-IQ4_XS.gguf

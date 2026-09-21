@@ -30,7 +30,7 @@ Four independent inputs drive every setting:
      heuristic as fallback.
    - CPU physical cores and system RAM (for CPU-offload sizing).
    - The concrete hardware this repo targets (GPU model/VRAM, CPU, host names
-     `lieselotte`/`hermine`) is documented in `llama.cpp/README.md` (intro) and
+     `Gertrude`/`hermine`) is documented in `llama.cpp/README.md` (intro) and
      `AGENTS.md` — **not** hardcoded in this skill or its script. Always re-probe
      the real machine; never assume specs from memory.
 2. **Agentic quality/speed tuning** — settings that are not about "does it fit"

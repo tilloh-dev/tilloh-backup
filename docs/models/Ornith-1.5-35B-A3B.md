@@ -110,10 +110,10 @@ Vulkan V floor, matching the Ornith-1.0 siblings there. No KV-KLD run done on th
   depth are untested.
 - ngram-mod speedup vs no speculative decoding at all is unmeasured (adopted on mechanism:
   lossless, no VRAM).
-- Wired into both OpenCode providers (`opencode.jsonc` models map + whitelist, lieselotte +
+- Wired into both OpenCode providers (`opencode.jsonc` models map + whitelist, gertrude +
   hermine, backup + live synced 2026-08-20) with text-only modalities. The HF repo ships an
   `mmproj-Ornith-1.5-35B-BF16.gguf` (Qwen-derived vision scaffolding is in the template), but it
   was not downloaded and image capability was not verified, so the provider advertises text only —
   same stance as gemma-4-26B-A4B/gemma-4-31B.
-- lieselotte: GGUF not downloaded/verified there; the example values are the untested Vulkan
-  translation of the hermine measurements.
+- Gertrude (Vulkan/7900 XTX): GGUF not downloaded, nothing measured there; the example values are
+  the untested Vulkan translation of the hermine measurements.

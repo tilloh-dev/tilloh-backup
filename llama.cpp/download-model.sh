@@ -15,6 +15,10 @@ _llama_load_config "$SCRIPT_DIR"
 
 LLAMA_MODELS_DIR="${LLAMA_MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"
 MANIFEST="$SCRIPT_DIR/models.list"
+if [[ ! -f "$MANIFEST" && -f "$SCRIPT_DIR/models.example.list" ]]; then
+    printf 'models.list not found — using models.example.list\n' >&2
+    MANIFEST="$SCRIPT_DIR/models.example.list"
+fi
 
 usage() {
     cat <<EOF

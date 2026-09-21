@@ -12,9 +12,10 @@ Config-driven setup to run **already-built GGUF models** with llama.cpp on the
   endpoint serves several models on demand.
 - **Windows PowerShell** is supported too: `bootstrap.ps1` / `download-model.ps1`
   / `server.ps1` are one-to-one equivalents of the `.sh` scripts. On Windows they
-  target **NVIDIA/CUDA** (the Windows box has an RTX 4090); the `.sh` scripts stay
-  on **Vulkan** (the Linux box has an AMD RX 7900 XTX). See the
-  [Windows (PowerShell)](#windows-powershell) section.
+  target **NVIDIA/CUDA** (the Windows box `hermine` has an RTX 4090); the `.sh`
+  scripts stay on **Vulkan** (the Linux box `Gertrude` has an AMD RX 7900 XTX —
+  the card moved there 2026-09-22 from a host that is no longer part of this
+  setup). See the [Windows (PowerShell)](#windows-powershell) section.
 
 See `PLAN.md` for the design rationale and the Windows→Linux mapping.
 
@@ -32,7 +33,8 @@ llama.cpp/
 ├── config.env              # Linux:   your real values               [gitignored]
 ├── config.ps1.example      # Windows: copy to config.ps1 and edit    [committed]
 ├── config.ps1              # Windows: your real values               [gitignored]
-├── models.list             # HuggingFace download manifest (shared)  [committed]
+├── models.example.list     # download manifest template (shared)     [committed]
+├── models.list             # your real download manifest             [gitignored]
 ├── presets/
 │   ├── models.example.ini  # router preset template (shared)         [committed]
 │   └── models.ini          # your real preset                        [gitignored]
@@ -58,6 +60,7 @@ cp config.env.example config.env          # set version / port / paths
 bash bootstrap.sh                         # fetch + verify Vulkan llama.cpp
 
 # choose & download a model:
+cp models.example.list models.list        # manifest template -> your manifest
 $EDITOR models.list                       # uncomment/add your HF models
 bash download-model.sh --all              # or: ./download-model.sh <repo> <file> [subdir]
 
@@ -274,19 +277,18 @@ Each `[section]` is a model; the header is the name clients send in the OpenAI
 absolute and point inside `$LLAMA_MODELS_DIR`. The committed `models.example.ini`
 uses `/home/USER` placeholders; replace them when you copy it to `models.ini`.
 
-## RPC: sharing lieselotte's 7900 XTX with another host
+## RPC: sharing Gertrude's 7900 XTX with another host
 
 `ggml-rpc-server` (shipped in the same release tarball as `llama-server`) hands
 one local device to a `llama-server` running elsewhere, which then offloads part
-or all of a model onto it via `--rpc`. On lieselotte the discrete card is
-`Vulkan0` and the i9-14900K's iGPU is `Vulkan1`, so naming the device is what
-keeps the exposed GPU from being the wrong one:
+or all of a model onto it via `--rpc`. Name the device explicitly: on a host
+that also exposes an iGPU, the discrete card is not reliably `Vulkan0`, and
+handing out the wrong one fails quietly. On Gertrude there is only the one card:
 
 ```console
-$ vendor/llama.cpp/llama-b10621/llama-server --list-devices
+$ "$(find vendor -name llama-server -type f | head -n1)" --list-devices
 Available devices:
-  Vulkan0: AMD Radeon RX 7900 XTX (RADV NAVI31) (24560 MiB, 23537 MiB free)
-  Vulkan1: Intel(R) Graphics (RPL-S) (35941 MiB, 32347 MiB free)
+  Vulkan0: AMD Radeon RX 7900 XTX (RADV NAVI31) (24576 MiB, 24545 MiB free)
 ```
 
 Expose the 7900 XTX:
@@ -320,20 +322,24 @@ port forwarded from the internet.
 ### Client side
 
 The consuming machine passes `--rpc host:port` (env: `LLAMA_ARG_RPC`), e.g.
-`--rpc lieselotte:50052`; several servers can be given comma-separated. In
-`presets/models.ini` this is the key `rpc = lieselotte:50052`.
+`--rpc gertrude:50052`; several servers can be given comma-separated. In
+`presets/models.ini` this is the key `rpc = gertrude:50052`.
 
-Two things worth knowing about the client view, both measured on b10621:
+Two things worth knowing about the client view:
 
-- The remote device shows up as `RPC0` and reports the remote card's full VRAM
-  (`RPC0 : 127.0.0.1:50052 (24560 MiB, 23532 MiB free)`), but **only** in the
-  `device_info` block at `-lv 5` — a plain `--list-devices` does *not* list RPC
-  devices, so its absence there is not a sign that the connection failed.
+- The remote device shows up as `RPC0` and reports the remote card's full VRAM,
+  but **only** in the `device_info` block at `-lv 5` — a plain `--list-devices`
+  does *not* list RPC devices, so its absence there is not a sign that the
+  connection failed.
 - With `--rpc` set, the local GPU stays in the pool and the model is split
-  across both. A loopback check with `Unlimited-OCR-Q8_0` (13 layers, `-ngl 99`)
-  landed `RPC0[127.0.0.1:50052] model buffer size = 1455.66 MiB` next to
-  `Vulkan0 model buffer size = 1352.98 MiB`. To place a model on the remote card
-  only, restrict the device list with `--device RPC0` (untested here).
+  across both. To place a model on the remote card only, restrict the device
+  list with `--device RPC0` (untested here).
+
+**No throughput numbers here any more.** The pooled measurements this section
+used to carry were taken while the 7900 XTX sat in a different host; that host
+is out of the setup since 2026-09-22 and the numbers did not survive the move.
+Measure any new pairing from scratch — `docs/llama-operations.md` says what is
+still known at build/protocol level.
 
 ## OpenCode integration
 
@@ -344,10 +350,10 @@ are kept aligned with that config.
 
 ## What is gitignored
 
-`vendor/`, `cache/`, `config.env`, `config.ps1`, `presets/models.ini`, and any
-`*.gguf` under `llama.cpp/`. Models live outside the repo entirely and are never
-tracked. Only scripts (`*.sh` + `*.ps1`), `*.example` templates, `models.list`,
-and `presets/models.example.ini` are committed.
+`vendor/`, `cache/`, `config.env`, `config.ps1`, `presets/models.ini`,
+`models.list`, and any `*.gguf` under `llama.cpp/`. Models live outside the repo
+entirely and are never tracked. Only scripts (`*.sh` + `*.ps1`), `*.example`
+templates, `models.example.list`, and `presets/models.example.ini` are committed.
 
 ## Vision-language models
 

@@ -45,6 +45,13 @@ if (Test-Path "$ScriptDir\config.ps1") {
 if ($ModelsDir) { $LLAMA_MODELS_DIR = $ModelsDir }
 if (-not $LLAMA_MODELS_DIR) { $LLAMA_MODELS_DIR = "$env:LOCALAPPDATA\llama.cpp\models" }
 $Manifest = Join-Path $ScriptDir 'models.list'
+if (-not (Test-Path $Manifest)) {
+    $ManifestExample = Join-Path $ScriptDir 'models.example.list'
+    if (Test-Path $ManifestExample) {
+        Write-Warning "models.list not found - using models.example.list"
+        $Manifest = $ManifestExample
+    }
+}
 
 function Show-Usage {
     @"

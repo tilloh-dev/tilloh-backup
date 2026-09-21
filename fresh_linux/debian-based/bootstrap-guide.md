@@ -157,7 +157,8 @@ EOF
 
 <!-- Hier können gerätespezifische Hinweise oder Abweichungen notiert werden -->
 
-- Lieselotte (2026-08-15): SSH zu `github.com` über Port 22 bricht intermittierend ab
+- Heimnetz (2026-08-15, beobachtet auf dem damaligen Linux-Rechner; auf Gertrude nicht
+  nachgeprüft): SSH zu `github.com` über Port 22 bricht intermittierend ab
   (`ssh: connect to host github.com port 22: Connection timed out`), während Port 443
   und ICMP zu derselben IP in denselben Zeitfenstern 100 % durchkommen (beobachtet:
   6/6 aufeinanderfolgende Timeouts, Port 443 in der Phase 12/12 erfolgreich). Ursache

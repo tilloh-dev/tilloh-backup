@@ -24,7 +24,7 @@ Two WSL-on-Windows traps when testing a server by hand on hermine, both cost a w
 
 ## CUDA KV-cache pairing rule
 
-On CUDA (hermine), `cache-type-v` MUST equal `cache-type-k`. Measured 2026-08-04 with gemma-4-31B @ 65536 + MTP: matched `q8_0`/`q8_0` yields 2391 t/s prompt / 86 t/s generation, the mixed `q8_0`/`q4_0` pair collapses to 32 t/s / 9 t/s because it falls off the fused FlashAttention kernel. Untested on Vulkan (lieselotte), whose presets still use the skill's `q8_0`/`q4_0` floor — so the llama-preset skill's V-floor is not safe to apply blindly on the CUDA box.
+On CUDA (hermine), `cache-type-v` MUST equal `cache-type-k`. Measured 2026-08-04 with gemma-4-31B @ 65536 + MTP: matched `q8_0`/`q8_0` yields 2391 t/s prompt / 86 t/s generation, the mixed `q8_0`/`q4_0` pair collapses to 32 t/s / 9 t/s because it falls off the fused FlashAttention kernel. Untested on Vulkan (Gertrude), whose presets still use the skill's `q8_0`/`q4_0` floor — so the llama-preset skill's V-floor is not safe to apply blindly on the CUDA box.
 
 ## spec-type / ngram-mod / cache-ram
 
@@ -68,41 +68,30 @@ documented env > config precedence always claimed. Note: `bootstrap.ps1` must be
 **pwsh** (PowerShell 7) — Windows PowerShell 5.1 misparses the file's UTF-8 em-dashes without a
 BOM and dies with parser errors.
 
-## RPC: pooling lieselotte's 7900 XTX into hermine's server
+## RPC: pooling a second machine's GPU into hermine's server
 
-First multi-machine load (Qwen3.8-Flash-Next, 2026-09-03, both ends b10766): official prebuilts
-ship `ggml-rpc-server(.exe)` + `libggml-rpc`/`ggml-rpc.dll` (verified in both the win-cuda and
-ubuntu-vulkan b10621/b10766 archives). lieselotte runs
-`vendor/llama.cpp/ggml-rpc-server -H 0.0.0.0 -p 50052 -d Vulkan0 -c`; hermine's section carries
-`rpc = 192.168.1.39:50052` and sees the card as `RPC0` (use the IP — `hermine`-style hostnames
-are unreliable across the WSL/Windows resolver split). Findings:
+**The measurements that used to be here were removed 2026-09-22.** They were taken with the
+7900 XTX sitting in `lieselotte` (i9-14900K host) and hermine pulling it in over RPC. The card
+has since moved into `Gertrude` (i9-9900K, 31 GB RAM) and lieselotte has no GPU at all any
+more, so every pooled number — the `-ts` sweep, the ~10 ms/token sync tax, the speculation
+ladder that bought it back, the `device`-key collapse — was host-dependent and is void. Nothing
+was re-measured on the Gertrude/hermine pair; if RPC pooling is picked up again, measure it
+from scratch.
 
-- `-d <GPU>` on the rpc-server keeps the remote CPU out of the pool (experts belong in the
-  *host's* RAM, not behind the LAN); `-c` caches shipped tensors on the remote disk — without
-  it every model load re-transfers ~19 GB.
+What survives is build- and protocol-level, not hardware-level:
+
+- Official prebuilts ship `ggml-rpc-server(.exe)` + `libggml-rpc`/`ggml-rpc.dll` (verified in
+  both the win-cuda and ubuntu-vulkan b10621/b10766 archives), so no source build is needed.
+- `-d <GPU>` on the rpc-server keeps the remote CPU out of the pool; `-c` caches shipped
+  tensors on the remote disk — without it every model load re-transfers the full weights.
 - `llama-fit-params` and `llama-server` both accept `--rpc` (env `LLAMA_ARG_RPC`); fit-params
   emits a ready `-ngl/-ts/-ot` combination for the pooled devices. `recommend.sh` predates RPC:
   its device table only shows local devices and it misreads split GGUFs (sees the 10 MiB first
   shard, calls a 125B MoE "dense", derives the section name from the quant subdir) — for RPC
   models, run fit-params by hand and use the script only as checklist.
-- **Do not set a `device` key for an RPC-split model** unless the split values were computed
-  under that explicit order: `device = CUDA0,RPC0` alone collapsed generation 8.4 → 2.9 t/s
-  against the identical implicit-enumeration config (isolated single-flag A/B; details and the
-  full ladder in `docs/models/Qwen3.8-Flash-Next.md`).
-- RPC protocol: no auth, no encryption, version-matched builds on both ends. LAN only.
-- **The RPC pipeline has a measurable fixed sync cost per token, and speculative decoding is
-  how you buy it back** (Qwen3.8-27B UD-Q8_K_XL, 2026-09-04, b10786): a 3-point `-ts` sweep
-  solves to XTX ≈ 0.87 ms/block + 4090 ≈ 0.55 ms/block + **~10 ms/token fixed** (the #22850
-  sync tax; rebalancing layers is a ±0.3 t/s dead end). Speculation at the twins' defaults
-  (n-max 3, p-min 0) measures at or *below* no-spec — each verify round pays the LAN hops
-  regardless of batch size — but **confidence-gated long drafts invert it**: sidecar drafter
-  pinned via `device-draft = CUDA0` (mandatory — embedded MTP re-serializes the RPC graph and
-  stays slower) with `spec-draft-n-max = 6` + `spec-draft-p-min = 0.5` lifts prose 17.4 →
-  27–32 and rewrites 26.7 → 44–48 t/s (/completion probes; chat endpoint with thinking:
-  20.5–22.9 / 36.9, tg@14k 16.2 → 27.6). Both knobs isolated as individually insufficient.
-  ngram-mod also measured its first win here (0.92 acceptance on verbatim rewrites). Also
-  measured: asymmetric `fit-target` and `-ub 2048` each collapse tg ~40 % (fit placement is
-  config-sensitive). Details: `docs/models/Qwen3.8-27B.md`.
+- RPC protocol: no auth, no encryption, version-matched builds on both ends. LAN only, and use
+  the IP rather than a hostname (`hermine`-style names are unreliable across the WSL/Windows
+  resolver split).
 - Router mode passes INI keys through to spawned instances verbatim, including an
   `override-tensor` regex containing `=` and `,` — no quoting issues (verified via spawn log).
 
