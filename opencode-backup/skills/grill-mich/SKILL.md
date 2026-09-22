@@ -1,5 +1,5 @@
 ---
-name: grill-me
+name: grill-mich
 description: Stelle beharrlich Fragen zu einem Plan oder Design, bis ein gemeinsames Verständnis erreicht und jeder Zweig des Entscheidungsbaums geklärt ist. Nutze den Skill, wenn Nutzer einen Plan stress-testen, sich zu ihrem Design grillen lassen oder „grill me“ erwähnen.
 ---
 

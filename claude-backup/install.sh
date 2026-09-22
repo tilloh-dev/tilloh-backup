@@ -27,4 +27,12 @@ printf "Copying skills to %s/skills...\n" "$TARGET_DIR"
 mkdir -p "$TARGET_DIR/skills"
 cp -R "$SOURCE_DIR/skills/." "$TARGET_DIR/skills/"
 
+if [[ -d "$SOURCE_DIR/hooks" ]]; then
+  printf "Copying hooks to %s/hooks...\n" "$TARGET_DIR"
+  mkdir -p "$TARGET_DIR/hooks"
+  cp -R "$SOURCE_DIR/hooks/." "$TARGET_DIR/hooks/"
+  chmod +x "$TARGET_DIR"/hooks/*.sh 2>/dev/null || true
+fi
+
 printf "Installation complete! Claude configuration updated successfully.\n"
+printf "Hooks are copied but not registered: see claude-backup/hooks.md for the settings.json snippet.\n"

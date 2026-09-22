@@ -32,7 +32,9 @@ tooling/
 │   └── install.sh                   # Copies config + AGENTS.md + skills/ to ~/.config/opencode/
 ├── claude-backup/
 │   ├── .claude/skills/              # Global Claude Code skills and references
-│   └── install.sh                   # Add-only install into ~/.claude/
+│   ├── .claude/hooks/               # Hook scripts (skills-overview.sh, SessionStart)
+│   ├── hooks.md                     # settings.json snippets to register the hooks
+│   └── install.sh                   # Add-only install into ~/.claude/ (skills + hooks)
 ├── llama.cpp/                       # Local LLM inference (prebuilt Vulkan llama.cpp)
 │   ├── bootstrap.sh                 # Fetch+extract prebuilt Vulkan release into vendor/
 │   ├── download-model.sh            # Pull GGUF(s) from HuggingFace to $LLAMA_MODELS_DIR
@@ -64,7 +66,7 @@ tooling/
 
 - `bashrc-backup/install.bash` deletes the `# CUSTOM START` … `# CUSTOM END` block from `~/.bashrc`, appends the new block at the end, then calls `exec bash -l` to reload the shell.
 - `opencode-backup/install.sh` copies `opencode.jsonc` to `~/.config/opencode/opencode.jsonc`, `AGENTS.md` to `~/.config/opencode/AGENTS.md`, any `agents/*.md` to `~/.config/opencode/agents/`, and `skills/*/` to `~/.config/opencode/skills/` (creates dirs if needed). Add-only: existing agents/skills/plugins from other sources are kept. It ships **no plugin** — the bash guard comes from `stadtwerk_ai_config` (see below).
-- `claude-backup/install.sh` merges all bundled skills into `~/.claude/skills/`: unrelated skills and extra files are kept, while files under the same bundled skill path are updated. It copies the gitignored `settings.local.json` with mode `0600` when present and skips it on a fresh clone. The installer resolves paths relative to itself, so it can be run from any directory.
+- `claude-backup/install.sh` merges all bundled skills into `~/.claude/skills/` and hook scripts into `~/.claude/hooks/`: unrelated skills and extra files are kept, while files under the same bundled skill path are updated. It does **not** edit `~/.claude/settings.json` (that file also holds the team command guard); hook registration is a manual merge from `claude-backup/hooks.md`. It copies the gitignored `settings.local.json` with mode `0600` when present and skips it on a fresh clone. The installer resolves paths relative to itself, so it can be run from any directory.
 
 ## Key aliases (after install)
 
@@ -148,9 +150,12 @@ doc file; this file only carries the one-line summary.
 
 ## Claude Code config notes
 
-- Skills: `commit-push`, `grill-me`, and `docs` (global, from `claude-backup/`); `llama-preset`, `llama-4090-community` and `claudelocal-models` (project-local, in `.claude/skills/`).
+- Skills: `commit-push`, `grill-mich`, `doku`, `affine`, `klartext`, `wortfinder` and `leserfreundlich` (global, from `claude-backup/`); `llama-preset`, `llama-4090-community` and `claudelocal-models` (project-local, in `.claude/skills/`).
+- `leserfreundlich` (added 2026-09-22) is a reminder skill, not a process: whenever a text for human readers is created or revised — Confluence, Markdown, Jira, AFFiNE, PR bodies, mails, even a "short comment" — it re-states that textual and structural formatting (lead sentence, headings by reader question, lists, tables, code blocks, callouts) must be used to make the text scannable. It complements `doku` (full document process) and `klartext` (chat-answer style) and is meant to fire in cases where those two do not.
 - **`claudelocal` runs Claude Code against hermine's llama.cpp router**: `claude --settings ~/.claude/settings.local.json` (alias in `bashrc-backup/.bashrc-aliases`), backed up here as `claude-backup/.claude/settings.local.json` (gitignored). Its `modelPicker` block is what makes the local models selectable with `/model`. Two constraints, read out of the 2.1.263 binary: `modelPicker` is honored **only** from managed settings, `--settings`/SDK and user settings — never from a project checkout, and `~/.claude/settings.local.json` is not user settings either, so the alias's `--settings` is the only path that works; and the key needs Claude Code ≥ 2.1.245, `behavesAs` ≥ 2.1.263 (2.1.236 ignores it silently). Keep the list in sync with the `claudelocal-models` skill rather than by hand — it also warns when `ANTHROPIC_MODEL` is no longer served, which is how a dead ID sat in the file from 2026-09-06 to 2026-09-07.
-- `docs` creates or revises concise documentation for GitHub Markdown, Confluence Cloud, and AFFiNE. Its `SKILL.md` stays compact; document-type, platform, and accessible-SVG guidance lives in references loaded only when needed. The skill is available automatically for matching tasks and explicitly as `/docs`.
+- `affine` is a **workspace** skill, `doku` a **document** skill; the split was made 2026-09-22 after the two had duplicated the AFFiNE write rules (read-back, `analyze_doc_fidelity`, block edits). `affine` now owns only where a page belongs (hub „Übersicht – Hermes Gehirn“, child pages, tags, Organize-Folder) and what must not be stored there; how the page is written lives solely in `doku/references/affine.md`. Its former `references/authoring.md` was folded in and deleted — the add-only `install.sh` leaves the installed copy behind, remove `~/.claude/skills/affine/references/` by hand.
+- **SessionStart hook `skills-overview.sh`** (added 2026-09-22, registered in the live `~/.claude/settings.json` the same day): prints a compact list of user, project and synced skills as a `systemMessage` on startup and `/clear`, silent on resume/compact. Deliberately small to avoid info fatigue: one line per skill, first sentence of the description, synced Anthropic skills as names only. It adds nothing to the model's context. Handles YAML block-scalar descriptions (`description: >`), which the `c4-devops-*` skills use.
+- `doku` (renamed from `docs` 2026-09-22, content translated to German the same day) creates or revises concise documentation for GitHub Markdown, Confluence Cloud, and AFFiNE. Its `SKILL.md` stays compact; document-type, platform, and accessible-SVG guidance lives in references loaded only when needed. The skill is available automatically for matching tasks and explicitly as `/doku`. A stale `~/.claude/skills/docs/` from an earlier install is not removed by the add-only `install.sh` and must be deleted by hand, or both names show up in `/`.
 
 ## llama.cpp config notes
 
