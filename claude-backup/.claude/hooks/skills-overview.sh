@@ -42,13 +42,31 @@ fm_value() { # file key
     END { if (block && acc!="") print acc }' "$1"
 }
 
-# first sentence, truncated
+# first clause (cut at ". " or ": "), truncated at a word boundary
 short() { # text
   local t=$1
   t=${t%%. *}
+  t=${t%%: *}
   t=${t%%.}
-  if (( ${#t} > DESC_MAX )); then t="${t:0:DESC_MAX-1}…"; fi
+  if (( ${#t} > DESC_MAX )); then
+    local hard=${t:0:DESC_MAX} soft
+    soft=${hard% *}
+    # prefer the word boundary, unless the dropped word is so long (a path, an
+    # identifier) that the line would lose most of its meaning
+    if (( ${#soft} >= DESC_MAX - 16 )); then t=$soft; else t=$hard; fi
+    t=${t%%[,;:]}
+    t+="…"
+  fi
   printf '%s' "$t"
+}
+
+# section header: "── title ── … ──" padded to WIDTH
+WIDTH=${SKILLS_OVERVIEW_WIDTH:-88}
+header() { # title
+  local title="── $1 " pad
+  pad=$(( WIDTH - ${#title} ))
+  (( pad < 4 )) && pad=4
+  printf '%s%s\n' "$title" "$(printf '─%.0s' $(seq 1 $pad))"
 }
 
 list_dir() { # dir
@@ -64,17 +82,20 @@ list_dir() { # dir
 
 out=""
 user_lines=$(list_dir "$HOME/.claude/skills")
-[[ -n "$user_lines" ]] && out+="Skills · user (~/.claude/skills)"$'\n'"$user_lines"$'\n'
+[[ -n "$user_lines" ]] && out+=$'\n'"$(header "Skills · user  ~/.claude/skills")"$'\n'"$user_lines"$'\n'
 
 proj_lines=$(list_dir "$cwd/.claude/skills")
-[[ -n "$proj_lines" ]] && out+="Skills · projekt (.claude/skills)"$'\n'"$proj_lines"$'\n'
+[[ -n "$proj_lines" ]] && out+=$'\n'"$(header "Skills · projekt  .claude/skills")"$'\n'"$proj_lines"$'\n'
 
 synced=""
 for f in "$HOME"/.claude/skills/synced/*/*/SKILL.md; do
   [[ -f "$f" ]] || continue
-  synced+=" $(basename "$(dirname "$f")")"
+  synced+="${synced:+ · }$(basename "$(dirname "$f")")"
 done
-[[ -n "$synced" ]] && out+="anthropic (synced):$synced"$'\n'
+[[ -n "$synced" ]] && out+=$'\n'"$(header "Anthropic · synced")"$'\n'"  $synced"$'\n'
 
 [[ -n "$out" ]] || exit 0
+# keep the leading newline: Claude Code prints the message after
+# "SessionStart:startup says: ", so the first header would otherwise sit on
+# that line, indented differently from the rest
 jq -n --arg m "${out%$'\n'}" '{systemMessage: $m}'

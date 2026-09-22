@@ -27,7 +27,9 @@ nothing is added to its context.
 ]
 ```
 
-Tune the description width with `SKILLS_OVERVIEW_DESC_MAX` (default 64).
+Tune the description width with `SKILLS_OVERVIEW_DESC_MAX` (default 64) and the
+section-rule width with `SKILLS_OVERVIEW_WIDTH` (default 88); both go into the `env`
+block of `settings.json` or in front of the command.
 Test without starting a session:
 
 ```bash
