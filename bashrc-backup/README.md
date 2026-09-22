@@ -116,3 +116,8 @@ Navigate to the `bashrc-backup` directory and run the installation script:
 ```bash
 bash install.bash
 ```
+
+The script asks once per API key (`OPENROUTER_API_KEY`, `ELEKTRONENGEHIRN_API_KEY`) whether
+to keep the value already in your `~/.bashrc` or enter a new one. Input is not echoed. Press
+Enter to keep; on a fresh machine Enter leaves the `insert_api_key_here` placeholder for you
+to fill in later. Piped or non-interactive runs keep existing values without asking.
