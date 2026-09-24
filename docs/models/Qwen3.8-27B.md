@@ -191,3 +191,27 @@ therefore points `chat-template-file` at the patched copy under
 `llama.cpp/presets/templates/`; rendering is byte-identical for all other
 message shapes. Capture, affected-model table and the verification run:
 `docs/llama-operations.md`.
+
+## Aider-polyglot on Gertrude: UD-Q4_K_S vs UD-Q4_K_XL (2026-09-24, build b11146)
+
+Run on Gertrude itself, because the 2026-09-07 numbers belong to hermine and do not transfer — that
+mistake was made once in this session before being caught. Setup mirrors the earlier one: polyglot
+Python subset (34 exercism tasks), `--edit-format whole`, threads 1, aider sends temp 0, served through
+the router. One deliberate difference: this build has a `--reasoning-effort` flag, used instead of the
+`--chat-template-kwargs` detour; both sections ran at `low`. Harness under `~/eval/` on Gertrude.
+
+| Run (34 tasks) | pass_rate_1 | pass_rate_2 | s/case | ctx | VRAM |
+|---|---|---|---|---|---|
+| UD-Q4_K_S (14.30 GiB) | **29.4 % (10)** | **76.5 % (26)** | **95.1** | 262144 | 23419 MiB |
+| UD-Q4_K_XL (16.35 GiB) | 26.5 % (9) | 70.6 % (24) | 110.4 | 163840 | 23004 MiB |
+
+Both runs: 100 % well-formed, 0 malformed, 0 error outputs, 0 test timeouts, 0 exhausted context windows.
+
+**Reading: the extra 2 GiB of weight bits bought nothing.** The gap is 2 tasks on pass_rate_2 and 1 on
+pass_rate_1 — roughly 0.6σ at n=34, so this run does **not** establish that K_S is better, only that
+K_XL is not. What is outside the noise: K_S carries **98k more context** (full native 262144 vs 163840,
+both measured, not fitted) and is **14 % faster per case**. On that basis K_S became the daily driver.
+
+**Caveat on every speed number from this box before 2026-09-24 14:00**: they were taken while amdgpu was
+evicting the model on idle. An earlier comparison in the same session read K_S at 34.6 and K_XL at 51.8
+t/s; after the runtime-PM fix the same pair measured 58.5 and 60.6. The whole gap was the artefact.
