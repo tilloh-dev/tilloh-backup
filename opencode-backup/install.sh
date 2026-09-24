@@ -1,71 +1,81 @@
 #!/bin/bash
-# ============================================================
 # OpenCode personal-config installer (add-only).
 #
-# Copies this backup's personal opencode.jsonc, agents/ and skills/
-# into ~/.config/opencode/ WITHOUT removing anything already there.
-# Other sources (e.g. the C4 team installer) may have installed their
-# own agents/skills/plugins/scripts alongside these — this script must
-# never wipe them. Files this script does own are overwritten in place;
-# the git history of this repo is the backup.
-# ============================================================
+# Copies this backup's personal opencode.jsonc, AGENTS.md, agents/ and skills/
+# into ~/.config/opencode/ WITHOUT removing anything already there. Other sources
+# (e.g. the C4 team installer) install their own agents/skills/plugins alongside
+# these - this script must never wipe them. Files this script owns are overwritten
+# in place; the git history of this repo is the backup.
+#
+# No plugins here on purpose. The bash guard lives in stadtwerk_ai_config
+# (.opencode/plugin/command-guard.js) and is installed by its own
+# install-opencode.sh into the same ~/.config/opencode/plugin/. Shipping a second
+# copy from here would run two guards side by side.
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_DIR="$HOME/.config/opencode"
-TARGET_FILE="$TARGET_DIR/opencode.jsonc"
-AGENTS_SRC_DIR="$SCRIPT_DIR/agents"
-AGENTS_TARGET_DIR="$TARGET_DIR/agents"
-SKILLS_SRC_DIR="$SCRIPT_DIR/skills"
-SKILLS_TARGET_DIR="$TARGET_DIR/skills"
 
-mkdir -p "$TARGET_DIR"
+# ── styling (only when stdout is a terminal) ─────────────────────────────────
+if [[ -t 1 ]] && command -v tput >/dev/null && [[ $(tput colors 2>/dev/null || echo 0) -ge 8 ]]; then
+  B=$(tput bold) D=$(tput dim) G=$(tput setaf 2) Y=$(tput setaf 3) C=$(tput setaf 6) R=$(tput sgr0)
+else
+  B="" D="" G="" Y="" C="" R=""
+fi
+h()    { printf '\n%s%s%s\n' "$B" "$1" "$R"; }
+tilde(){ printf '%s' "${1/#$HOME/\~}"; }   # print a path with ~ for $HOME
+warn() { printf '  %s!%s %s\n' "$Y" "$R" "$1"; }
+kv()   { printf '  %s✔%s %-26s %s%s%s\n' "$G" "$R" "$1" "$D" "$2" "$R"; }
 
-install_file() {
-    local src="$1" dst="$2"
-    mkdir -p "$(dirname "$dst")"
-    cp "$src" "$dst"
-    printf "  Installed: %s\n" "$dst"
+# copy one file, report new/updated
+install_file() { # src dst label
+  local state="new"
+  [[ -f "$2" ]] && state="updated"
+  mkdir -p "$(dirname "$2")"
+  cp "$1" "$2"
+  kv "$3" "$state"
 }
 
-printf "Installing personal opencode.jsonc -> %s\n" "$TARGET_FILE"
-install_file "$SCRIPT_DIR/opencode.jsonc" "$TARGET_FILE"
+printf '%s%sOpenCode config install%s  %s%s → %s%s\n' "$B" "$C" "$R" "$D" "$(tilde "$SCRIPT_DIR")" "$(tilde "$TARGET_DIR")" "$R"
+mkdir -p "$TARGET_DIR"
 
-# Global rules, loaded into every opencode session (see opencode.ai/docs/rules).
-if [ -f "$SCRIPT_DIR/AGENTS.md" ]; then
-    printf "Installing global rules -> %s\n" "$TARGET_DIR/AGENTS.md"
-    install_file "$SCRIPT_DIR/AGENTS.md" "$TARGET_DIR/AGENTS.md"
+# ── config + global rules ────────────────────────────────────────────────────
+h "Config"
+install_file "$SCRIPT_DIR/opencode.jsonc" "$TARGET_DIR/opencode.jsonc" "opencode.jsonc"
+if [[ -f "$SCRIPT_DIR/AGENTS.md" ]]; then
+  install_file "$SCRIPT_DIR/AGENTS.md" "$TARGET_DIR/AGENTS.md" "AGENTS.md"
+else
+  warn "AGENTS.md  ${D}not in this checkout - skipped${R}"
 fi
 
-# Add agent definitions without deleting agents from other sources.
-if [ -d "$AGENTS_SRC_DIR" ] && compgen -G "$AGENTS_SRC_DIR/*.md" > /dev/null; then
-    printf "Adding agents to %s (existing files kept)...\n" "$AGENTS_TARGET_DIR"
-    for f in "$AGENTS_SRC_DIR"/*.md; do
-        install_file "$f" "$AGENTS_TARGET_DIR/$(basename "$f")"
-    done
+shopt -s nullglob
+
+# ── agents ───────────────────────────────────────────────────────────────────
+agents=("$SCRIPT_DIR"/agents/*.md)
+if (( ${#agents[@]} )); then
+  h "Agents  ${D}→ $(tilde "$TARGET_DIR")/agents (existing agents kept)${R}"
+  for f in "${agents[@]}"; do
+    install_file "$f" "$TARGET_DIR/agents/$(basename "$f")" "$(basename "$f" .md)"
+  done
 fi
 
-# Add skills without deleting skills from other sources.
-if [ -d "$SKILLS_SRC_DIR" ]; then
-    printf "Adding skills to %s (existing skills kept)...\n" "$SKILLS_TARGET_DIR"
-    shopt -s nullglob
-    for skill_dir in "$SKILLS_SRC_DIR"/*/; do
-        name="$(basename "$skill_dir")"
-        printf "  Skill: %s\n" "$name"
-        # Copy the skill's contents in without removing the target dir, so a
-        # skill of the same name is updated file-by-file rather than
-        # wiped-and-replaced.
-        while IFS= read -r -d '' src; do
-            rel="${src#"$skill_dir"}"
-            install_file "$src" "$SKILLS_TARGET_DIR/$name/$rel"
-        done < <(find "$skill_dir" -type f -print0)
-    done
-    shopt -u nullglob
+# ── skills ───────────────────────────────────────────────────────────────────
+skills=("$SCRIPT_DIR"/skills/*/)
+if (( ${#skills[@]} )); then
+  h "Skills  ${D}→ $(tilde "$TARGET_DIR")/skills (existing skills kept)${R}"
+  for skill_dir in "${skills[@]}"; do
+    name="$(basename "$skill_dir")"
+    if [[ -d "$TARGET_DIR/skills/$name" ]]; then state="updated"; else state="new"; fi
+    # copy file-by-file so a same-named skill is updated, not wiped-and-replaced
+    while IFS= read -r -d '' src; do
+      rel="${src#"$skill_dir"}"
+      mkdir -p "$(dirname "$TARGET_DIR/skills/$name/$rel")"
+      cp "$src" "$TARGET_DIR/skills/$name/$rel"
+    done < <(find "$skill_dir" -type f -print0)
+    kv "$name" "$state"
+  done
 fi
+shopt -u nullglob
 
-# No plugins here on purpose. The bash guard lives in stadtwerk_ai_config
-# (.opencode/plugin/command-guard.js) and is installed by its own
-# install-opencode.sh, which drops it into the same ~/.config/opencode/plugin/.
-# Shipping a second copy from here would run two guards side by side.
-
-printf "Installation complete! opencode configuration updated (add-only).\n"
+printf '\n%sDone.%s %sadd-only: nothing outside these files was touched. The bash guard comes from stadtwerk_ai_config, not from here.%s\n' "$B" "$R" "$D" "$R"
