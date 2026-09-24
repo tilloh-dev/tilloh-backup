@@ -4,7 +4,7 @@
 
 ## config-load.sh precedence and the CRLF fall-through
 
-Config in `config.env` (gitignored; copy from `config.env.example`). On the Windows host there is no `config.env` — it configures itself in `config.ps1` (also gitignored, and it holds a plaintext `HF_TOKEN`). All four bash entry points therefore load their settings through `config-load.sh`, which resolves env var > `config.env` > `config.ps1` > `config.env.example`. Before that existed, `server.sh`, `download-model.sh` and `bootstrap.sh` were **completely broken on hermine** (verified 2026-08-05): they fell through to `config.env.example`, which carries CRLF, and `source` then fails on every line with `$'\r': command not found`. Falling through was wrong twice over — that file also assigns a Linux models path and `LLAMA_BACKEND=vulkan`, so a working `source` would have pointed at a nonexistent directory and fetched a Vulkan build for a CUDA box. `recommend.sh` keeps its own copy of this logic on purpose: it must run standalone from the skill directory.
+Config in `config.env` (gitignored; copy from `config.env.example`). On the Windows host there is no `config.env` — it configures itself in `config.ps1` (also gitignored, and it holds a plaintext `HF_TOKEN`). All four bash entry points therefore load their settings through `config-load.sh`, which resolves `config.env` > `config.ps1` > `config.env.example`. **Until 2026-09-24 that chain was documented as starting with the environment, and the code implemented it for exactly three keys** (`LLAMA_MODELS_DIR`, `LLAMA_PRESET`, `LLAMA_VERSION`, restored after sourcing) while silently clobbering every other `LLAMA_*`. The gap was found by `LLAMA_PORT=8099 ./server.sh` binding 8081; the same defect meant `LLAMA_AUTO_UPDATE=0` never disabled the update check, which had been used in that belief several times the same day. Per user decision the file is now authoritative outright — no environment override at all, including `LLAMA_VERSION`, so a build is pinned for RPC work by editing `config.env`. Before that existed, `server.sh`, `download-model.sh` and `bootstrap.sh` were **completely broken on hermine** (verified 2026-08-05): they fell through to `config.env.example`, which carries CRLF, and `source` then fails on every line with `$'\r': command not found`. Falling through was wrong twice over — that file also assigns a Linux models path and `LLAMA_BACKEND=vulkan`, so a working `source` would have pointed at a nonexistent directory and fetched a Vulkan build for a CUDA box. `recommend.sh` keeps its own copy of this logic on purpose: it must run standalone from the skill directory.
 
 ## server.sh on hermine: the two defects
 
@@ -186,3 +186,78 @@ Notes for the next reader:
   any loaded GGUF via `/apply-template`.
 - The patched files are tracked in the repo; `models.ini` is not. After
   changing a template, the router must be restarted to pick it up.
+
+## amdgpu runtime-suspends the card and evicts the model into host RAM (Gertrude, 2026-09-24)
+
+The single most expensive fault in this repo's history so far, and it hid for days. `amdgpu` runs with
+`power/control=auto` and `autosuspend_delay_ms=5000`: five seconds after the last GPU access the card
+runtime-suspends, and the driver moves its VRAM contents into host memory (GTT). `llama-server` neither notices
+nor reports it — it keeps answering over PCIe at a fraction of the speed while pinning ~16 GiB of system RAM, and
+it never migrates back. One episode ran **two days** undetected and left the 32 GB box at 273 MiB free RAM with a
+full swap; that is what prompted the investigation, via the unrelated-looking question "why is the RAM full".
+
+The decisive measurement, same configuration both phases: **a request every 10 s held 19809 MiB of VRAM steady
+across nine samples over 90 s; 15 s of idle dropped it to 26 MiB VRAM / 15944 MiB GTT.** `power/runtime_suspended_time`
+stood at ~260206 s against a 72 h uptime — the card had been asleep essentially the whole time.
+
+**Four wrong diagnoses preceded it, and each was disproved by measurement**, which is why they are recorded here:
+(1) a one-off consequence of an OOM-kill — refuted, it recurred; (2) the router's model switching — refuted, a
+single switch stayed clean and the exact failing three-switch sequence replayed clean; (3) VRAM headroom pressure —
+refuted, it evicted at 2652 MiB free, more headroom than a configuration that stayed stable; (4) something specific
+to the Q4_K_XL weights — refuted by the idle/active split above. The common error in all four: **every
+reproduction attempt measured immediately after a request**, inside the 5 s wake window. A one-shot check after
+loading cannot see this fault at all.
+
+**Fix: `amdgpu.runpm=0` in `GRUB_CMDLINE_LINUX_DEFAULT`**, verified across a reboot — `power/control=on`,
+`runtime_status=active`, 60 s idle with no eviction, no manual step. A udev rule keyed on vendor/device
+(`ATTR{vendor}=="0x1002", ATTR{device}=="0x744c", ATTR{power/control}="on"`) was written first and **measured not
+to work**: the attribute is set before `amdgpu` binds and the driver then overrides it. Delete it rather than
+leave it as decoration. `echo on > /sys/bus/pci/devices/<addr>/power/control` works immediately but does not
+survive a reboot.
+
+`llama.cpp/tools/healthcheck.sh` remains as the safety net for whatever else can produce the same end state, and
+caught a real incident before the cause was known. Its detector is amdgpu-specific and **does not transfer to
+hermine**, where the Windows driver spills into shared memory while `nvidia-smi` "used" still looks plausible —
+that host needs a throughput probe instead.
+
+## The "hard 22.5 GB VRAM cliff" on Gertrude never existed
+
+Gertrude's `models.ini` header carried, for weeks, a measured-looking claim: throughput collapses by a factor of
+three above ~22.5 GB of occupied VRAM, "22461 MiB runs, 22855 MiB tips", re-verified on kernel 6.12 as "22854 MiB
+still only delivers 22 t/s". **All of it was the runtime-suspend eviction above.** The "collapsed" runs were runs
+that had fallen into host memory between the load and the measurement.
+
+Measured after the fix: **23002 MiB occupied gives a 60.6 t/s median** — 147 MiB past the supposed tipping point
+and the fastest figure ever recorded on that box. The lesson is not about VRAM: a number that only ever appears
+together with a second, unmodelled failure mode will encode that failure mode instead of the thing being measured.
+
+Consequence for the archive: **every throughput number taken on Gertrude before 2026-09-24 14:00 is suspect.**
+A same-session comparison of UD-Q4_K_S against UD-Q4_K_XL read 34.6 vs 51.8 t/s under the eviction regime and
+58.5 vs 60.6 t/s once it was gone — the entire apparent gap was the artefact, and a preset decision had already
+been taken on the strength of it.
+
+## Second GPU on Gertrude: Vulkan enumeration and the card-number trap (2026-09-24)
+
+An RTX 3060 was added for image generation alongside the 7900 XTX. Debian's `nvidia-driver` **535.309.01** from
+`non-free` builds against kernel **6.12.95** via DKMS and loads cleanly. Two things to know before repeating this:
+**`bookworm-backports` carries no `nvidia-driver` at all**, so `apt install -t bookworm-backports nvidia-driver`
+fails on an unsatisfiable dependency mix rather than doing anything useful, and `non-free` has to be added to
+`sources.list` first (`non-free-firmware` alone is not enough). DKMS builds during `apt install`, so a build
+failure is immediate and visible, not a post-reboot surprise. `dkms` lives in `/usr/sbin`, which is not on a
+normal user's PATH — `dkms: command not found` after a successful install means nothing.
+
+The driver installs `nvidia_icd.json`, so llama.cpp now enumerates **`Vulkan0` = 7900 XTX, `Vulkan1` = RTX 3060**.
+`device = VULKAN0` therefore still resolves to the AMD card — but llama.cpp selects by **index**, with no
+name-based option, so **`--list-devices` must be re-checked after every driver or BIOS change**. Disable the
+serving unit before the reboot that activates a new driver; otherwise it can come up on the wrong card unattended.
+
+Installing the card also **renumbered the AMD GPU from `card0` to `card1`**, which silently pointed every
+`card0`-hardcoded helper at the NVIDIA card. Address GPUs by PCI id (`/sys/bus/pci/devices/0000:03:00.0`) or find
+them by probing for `mem_info_vram_used` plus `vendor == 0x1002`; `healthcheck.sh` does the latter and survived
+the change untouched.
+
+The box is headless — no connector on either card reports `connected` — so there is no Xorg or display-provider
+risk, and `amdgpu` is in-kernel, so `apt purge '~nnvidia'` is a clean rollback that cannot affect it. One
+unexplained observation: the same preset occupied 23419 MiB before the reboot and 24186 MiB after it. Both
+figures are post-fix, so it is not the old eviction; separating the driver's presence from `runpm=0` would mean
+removing the driver again and was judged not worth it.
