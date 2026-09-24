@@ -1,11 +1,12 @@
 ---
 name: leserfreundlich
-description: Reminder to shape any text written for human readers with textual and structural formatting so it can be scanned, understood and acted on. Use it every time a text artefact is created or revised, whatever the platform or length — Confluence pages, Markdown and README files, Jira tickets and comments, AFFiNE docs, PR descriptions, release notes, handover notes, meeting notes, e-mails, chat posts, commit bodies, code comments longer than a line. Trigger also on German phrasing ("Doku schreiben", "Ticket anlegen", "Seite erstellen", "Notiz verfassen", "Text formulieren", "beschreib das mal", "schreib das auf") and even when the user only asks for "a short text", "a few lines" or "just a description" — short texts are where formatting is skipped most often.
+description: Reminder to shape any text written for human readers with textual and structural formatting so it can be scanned, understood and acted on, and to keep only the information the reader needs — little prose, no history lessons, no meta-commentary. When an existing text is revised, the touched passages are trimmed as well. Use it every time a text artefact is created or revised, whatever the platform or length — Confluence pages, Markdown and README files, Jira tickets and comments, AFFiNE docs, PR descriptions, release notes, handover notes, meeting notes, e-mails, chat posts, commit bodies, code comments longer than a line. Trigger also on German phrasing ("Doku schreiben", "Ticket anlegen", "Seite erstellen", "Notiz verfassen", "Text formulieren", "beschreib das mal", "schreib das auf") and even when the user only asks for "a short text", "a few lines" or "just a description" — short texts are where formatting is skipped most often. Trigger also on requests to shorten or tighten a text ("kürzen", "straffen", "zu lang", "weniger Prosa", "überarbeite diese Seite/Doku").
 ---
 
 # leserfreundlich
 
-A text is finished when a human reader finds what they need without reading all of it.
+A text is finished when a human reader finds what they need without reading all of it,
+and nothing is left in it that the reader does not need.
 Plain prose blocks are the default output of a language model; a person skimming a ticket
 between two meetings needs the opposite: structure that carries the meaning before the words do.
 
@@ -53,10 +54,49 @@ three or four sentences; a paragraph break is the cheapest structural element th
 - **Active voice and a named actor.** "The cron job deletes …" instead of "… is deleted".
 - **One term per thing.** Choose "cluster" or "environment" and keep it. Expand an acronym
   the first time.
-- **Cut the framing.** No "This document describes …", no "In summary …", no closing offer.
-  The heading already says what the document is.
 - **Write in the destination's language and register.** German page, German text;
   match the tone of the surrounding pages, tickets or threads.
+
+## Cut the prose
+
+Every sentence has to pass these tests. Each is a yes/no question; a sentence that is merely
+long is not a finding. Apply them while writing, so the prose never appears.
+
+| Cut | The test |
+|---|---|
+| History lesson | Does it say what something **used to** be? |
+| Route to the decision | Does it narrate how the decision was reached instead of stating it? |
+| Meta-commentary | Is the subject the text itself ("This page describes …", "In summary …", a closing offer) rather than the thing it describes? |
+| The obvious | Does the sentence before it, the heading or the code beside it already say so — including counts and lists the reader can see for themselves? |
+| Second copy | Does this content already have an authoritative home? Replace it with a link to that home, never delete it outright. |
+
+History is the content, and the first test does not apply, in release notes, changelogs,
+handover and meeting notes.
+
+**Keep** — cutting these is the failure mode of trimming:
+
+- **The failure a rule prevents.** "`fit = on` silently offloads experts, ~30 % slower" is the
+  reason the rule exists; the reader cannot re-derive it.
+- **A measured number**, with its unit and what was measured.
+- **A constraint from outside** the reader's control: a platform quirk, a vendor limit, a
+  policy.
+- **The one authoritative statement** of a rationale, at its home, however long it has to be.
+- **Dead-end history.** A past state stays, condensed to one sentence, when it stops someone
+  from re-entering a dead end or "correcting" something that is deliberate.
+- **Certainty markers.** "unmeasured", "not verified", "tested on one machine only" look like
+  filler and are the first words a trim removes. Without them a guess reads as fact.
+
+## Revising an existing text
+
+- **Scope:** trim the passages you touch and the section around them, not the whole text.
+  Other sections may be someone else's work, and a reader who asked for one change cannot
+  review a rewritten document.
+- **Offer the rest:** if untouched sections fail the cut tests, ask once in one line whether
+  the whole text should be trimmed too. If nothing else fails, don't ask.
+- **Whole text on request:** "revise / shorten / tighten this page" means the whole text.
+- **Report what went:** after trimming an existing text, give one line per cut category with
+  one struck phrase as example, e.g. "History lesson: 2 sentences (›used to run via …‹)".
+  No report for a newly written text — nothing was cut.
 
 ## Platform notes
 
@@ -91,5 +131,6 @@ three or four sentences; a paragraph break is the cheapest structural element th
 ## Check before publishing
 
 Read only the headings, the first line and every bold lead-in. If that skim already tells the
-reader what happened, what to do and where the risk is, publish. If not, restructure
-before polishing sentences.
+reader what happened, what to do and where the risk is, go on; if not, restructure before
+polishing sentences. Then read every remaining sentence against *Cut the prose*: one that
+fails a test and is not on the keep list goes.
