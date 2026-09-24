@@ -1,0 +1,25 @@
+# HuggingFace download manifest for:  ./download-models.sh --all
+# Copy to models.list (gitignored) and adjust.
+#
+# Format (pipe-separated):   repo_id | filename | comfy_subdir
+#   - comfy_subdir is relative to $COMFY_DIR/models/
+#
+# Lines starting with # are ignored. Downloads never land in this repo.
+#
+# --- Qwen-Image-2.1, sized for a 12 GB card --------------------------------
+# The diffusion model must be the GGUF build: the fp8/int8 releases want ~24 GB.
+# Q4 sits at ~11 GB and is the quality/size pick the community converged on;
+# Q3 and Q2 exist for smaller cards, Q5/Q6/Q8 for larger ones.
+RealRebelAI/Qwen-Image-2.1-GGUF   | Qwen-Image-2.1-Q4.gguf            | unet
+#
+# Text encoder. bf16 is the reference; int8_convrot and w4a8 are the smaller
+# builds. With --lowvram the encoder runs from system RAM, so bf16 is fine on a
+# 32 GB host — drop to int8 if RAM gets tight or --lowvram is removed.
+Comfy-Org/Qwen-Image-2.1         | qwen3vl_8b_bf16.safetensors        | text_encoders
+#
+# VAE
+Comfy-Org/Qwen-Image-2.1         | qwen_image_2.1_vae_bf16.safetensors | vae
+#
+# --- Smaller alternatives, uncomment if 12 GB turns out to be tight ---------
+# RealRebelAI/Qwen-Image-2.1-GGUF | Qwen-Image-2.1-Q3.gguf             | unet
+# Comfy-Org/Qwen-Image-2.1        | qwen3vl_8b_int8_convrot.safetensors | text_encoders

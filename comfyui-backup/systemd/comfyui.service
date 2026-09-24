@@ -1,0 +1,15 @@
+[Unit]
+Description=ComfyUI (image generation, RTX 3060)
+Documentation=https://github.com/tilloh-dev/tilloh-backup
+After=network-online.target
+
+[Service]
+Type=exec
+WorkingDirectory=%h/tilloh-backup/comfyui-backup
+ExecStart=/usr/bin/env bash %h/tilloh-backup/comfyui-backup/serve.sh
+Restart=always
+RestartSec=10
+TimeoutStopSec=120
+
+[Install]
+WantedBy=default.target

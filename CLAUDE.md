@@ -2,7 +2,7 @@
 
 ## Repository purpose
 
-A personal tooling collection: curated developer tool references (`README.md`), bash config backups, OpenCode config backup, Claude config backup, and a fresh-Linux bootstrap guide.
+A personal tooling collection and local AI stack: curated developer tool references (`README.md`), bash config backups, OpenCode config backup, Claude config backup, and a fresh-Linux bootstrap guide.
 
 No build system, no tests, no CI. All content is documentation and shell scripts.
 
@@ -53,6 +53,13 @@ tooling/
 │   ├── config.env.example           # Model/port/ctx (copy to config.env)
 │   ├── install.sh / serve.sh        # venv+download / OpenAI server :8091
 │   └── README.md                    # Measured verdict vs llama.cpp (loses for this workload)
+├── comfyui-backup/                  # Image generation (ComfyUI on the RTX 3060)
+│   ├── config.env.example           # ComfyUI dir, bind, torch index (copy to config.env)
+│   ├── install.sh                   # Clone + venv + torch(cu121) + ComfyUI-GGUF node
+│   ├── download-models.sh           # Pull the manifest into ComfyUI/models/
+│   ├── models.example.list          # Qwen-Image-2.1 GGUF + encoder + VAE
+│   ├── serve.sh / systemd/          # Server on :8188 + user unit
+│   └── README.md                    # Sizing, Hermes wiring, what is still unmeasured
 └── fresh_linux/debian-based/
     └── bootstrap-guide.md           # New machine setup checklist
 ```
@@ -65,6 +72,7 @@ tooling/
 | OpenCode config | `cd opencode-backup && bash install.sh` |
 | Claude Code config | `cd claude-backup && bash install.sh` |
 | Local llama.cpp (Vulkan) | `cd llama.cpp && cp config.env.example config.env && bash bootstrap.sh` |
+| ComfyUI (image gen, CUDA) | `cd comfyui-backup && cp config.env.example config.env && cp models.example.list models.list && bash install.sh` |
 
 - `bashrc-backup/install.bash` deletes the `# CUSTOM START` … `# CUSTOM END` block from `~/.bashrc`, appends the new block at the end, then calls `exec bash -l` to reload the shell. Since 2026-09-22 it no longer clobbers the `export *_API_KEY=` lines with the template's `insert_api_key_here` placeholder: it reads each key's current value out of the old block and asks per key whether to keep it (Enter) or type a new one; input is silent (`read -s`) and never echoed, and without a terminal on stdin it keeps the existing values and asks nothing. The key list is derived from the template, so a new `export FOO_API_KEY=` line in `.bashrc` is picked up automatically.
 - `opencode-backup/install.sh` copies `opencode.jsonc` to `~/.config/opencode/opencode.jsonc`, `AGENTS.md` to `~/.config/opencode/AGENTS.md`, any `agents/*.md` to `~/.config/opencode/agents/`, and `skills/*/` to `~/.config/opencode/skills/` (creates dirs if needed). Add-only: existing agents/skills/plugins from other sources are kept. It ships **no plugin** — the bash guard comes from `stadtwerk_ai_config` (see below).
@@ -185,6 +193,13 @@ doc file; this file only carries the one-line summary.
 - **`presets/models.ini` is kept comment-free — the user deletes `#` comments from it on sight.** Rationale goes into `models.example.ini` (tracked, comment-friendly) and the model's file under `docs/models/`. Discovery story: `docs/llama-operations.md`.
 - OpenCode: the local `gertrude` provider `baseURL` is `http://127.0.0.1:8081/v1`; the remote `hermine` provider points at `http://hermine:8081/v1`.
 - Skill `.claude/skills/llama-preset/` (`scripts/recommend.sh`) generates/updates `models.ini` sections from measured hardware plus agentic defaults; substantially rewritten 2026-08-04 after a dozen real defects found by running it on this machine. Read `docs/llama-recommend-sh.md` before changing the script — it records each defect and the validation run. Known gap: it misses embedded MTP heads whose repo name lacks `-MTP-` (bit `Qwen3.8-27B`).
+
+## ComfyUI config notes
+
+- **Second engine on the second GPU**: ComfyUI serves image generation on the RTX 3060 while llama.cpp keeps the 7900 XTX. They cannot collide over VRAM **structurally, not by configuration** — the AMD card is not a CUDA device and llama.cpp is pinned to Vulkan. System RAM is the one shared resource (`--lowvram` puts the text encoder there).
+- Qwen-Image-2.1 needs ~24 GB as fp8/int8 and **~11.1 GB as a Q4 GGUF**, so the GGUF build is the only one that fits 12 GB; GGUF loading additionally requires the `ComfyUI-GGUF` custom node. **These are other people's numbers** — nothing is measured on Gertrude yet, and `comfyui-backup/README.md` says so explicitly rather than implying otherwise.
+- `install.sh` installs torch from the CUDA wheel index **before** `requirements.txt`, because the generic requirements will otherwise pull a CPU-only wheel over it, and ends with a hard CUDA check so that failure is loud instead of a silent CPU fallback.
+- **Hermes reaches it over the Docker bridge gateway, not loopback**: the agent runs in a container on `hermes_network`, so `http://172.20.0.1:8188` — the same shape as the `172.21.0.1:8081` route it already uses for the llama.cpp router. UFW allows 8081 from the LAN and both docker ranges; 8188 needs the same rules. Hermes 0.15.1+ speaks ComfyUI natively through its `image_gen` tool and the `hermes-comfyui-local` plugin ships a `qwen_image_2_1_txt2img` workflow, so no OpenAI-style adapter is needed. Gertrude runs 0.20.5 with `HERMES_HOME=/opt/data` mapped to `~/hermes/data`, so config and plugins survive the container updates that `wud` triggers.
 
 ## Conventions
 

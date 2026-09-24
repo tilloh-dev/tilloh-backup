@@ -8,3 +8,7 @@ llama.cpp/config.ps1
 llama.cpp/presets/models.ini
 llama.cpp/models.list
 llama.cpp/**/*.gguf
+
+# comfyui-backup: machine-specific config and the model manifest
+comfyui-backup/config.env
+comfyui-backup/models.list
