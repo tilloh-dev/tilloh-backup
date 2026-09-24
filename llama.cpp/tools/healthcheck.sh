@@ -38,6 +38,7 @@ LLAMA_HEALTHCHECK_STRIKES="${LLAMA_HEALTHCHECK_STRIKES:-2}"
 LLAMA_HEALTHCHECK_STATE="${LLAMA_HEALTHCHECK_STATE:-$HOME/.local/state/llama.cpp}"
 LLAMA_HEALTHCHECK_LOG="${LLAMA_HEALTHCHECK_LOG:-$LLAMA_HEALTHCHECK_STATE/healthcheck.log}"
 LLAMA_HEALTHCHECK_RESTART="${LLAMA_HEALTHCHECK_RESTART:-1}"
+LLAMA_HEALTHCHECK_SETTLE="${LLAMA_HEALTHCHECK_SETTLE:-90}"
 
 mkdir -p "$LLAMA_HEALTHCHECK_STATE"
 STRIKE_FILE="$LLAMA_HEALTHCHECK_STATE/healthcheck.strikes"
@@ -79,6 +80,15 @@ pick_detector() {
 
 server_running() {
     pgrep -f '[l]lama-server' >/dev/null 2>&1
+}
+
+# Seconds since the serving unit last entered the active state, or "" if unknown.
+unit_uptime() {
+    local ts
+    ts="$(systemctl --user show "$LLAMA_HEALTHCHECK_UNIT" -p ActiveEnterTimestamp --value 2>/dev/null)"
+    [[ -n "$ts" ]] || return 1
+    local t; t="$(date -d "$ts" +%s 2>/dev/null)" || return 1
+    echo $(( $(date +%s) - t ))
 }
 
 # Recovery must restore the known state, not change it. The serving unit starts
@@ -133,6 +143,17 @@ main() {
     # server must not accumulate toward a restart.
     if ! server_running; then
         : >"$STRIKE_FILE"
+        exit 0
+    fi
+
+    # Loading or unloading a 16 GiB model walks through states that look exactly
+    # like an eviction from outside -- measured mid-transition samples of
+    # vram=9020/gtt=15877 and vram=801/gtt=16719 on 2026-09-24. Sampling one of
+    # those, restarting, and thereby causing the next transition is a feedback
+    # loop the check can drive on its own. So give the unit time to settle
+    # first; a real eviction still gets caught on the following run.
+    local up
+    if up="$(unit_uptime)" && (( up < LLAMA_HEALTHCHECK_SETTLE )); then
         exit 0
     fi
 
