@@ -34,8 +34,11 @@ fetch() {
     local repo="$1" file="$2" sub="$3"
     local dest="$COMFY_DIR/models/$sub"
     mkdir -p "$dest"
-    if [[ -s "$dest/$(basename "$file")" ]]; then
-        printf '  SKIP %s (already present)\n' "$(basename "$file")"
+    # $file may carry a folder prefix (Comfy-Org ships text_encoders/... and
+    # vae/..., which match ComfyUI's own layout), so check the full relative
+    # path rather than just the basename.
+    if [[ -s "$dest/$file" ]]; then
+        printf '  SKIP %s (already present)\n' "$file"
         return 0
     fi
     printf '  GET  %s :: %s -> models/%s\n' "$repo" "$file" "$sub"

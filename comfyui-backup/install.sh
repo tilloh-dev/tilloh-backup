@@ -12,7 +12,8 @@ CFG="config.env"
 source "./$CFG"
 
 COMFY_DIR="${COMFY_DIR:?COMFY_DIR not set}"
-COMFY_TORCH_INDEX="${COMFY_TORCH_INDEX:-https://download.pytorch.org/whl/cu121}"
+COMFY_TORCH_INDEX="${COMFY_TORCH_INDEX:-https://download.pytorch.org/whl/cu126}"
+COMFY_TORCH_VERSION="${COMFY_TORCH_VERSION:-2.7.1}"
 
 # --- ComfyUI itself ---------------------------------------------------------
 if [[ -d "$COMFY_DIR/.git" ]]; then
@@ -43,9 +44,12 @@ fi
 "$VENV/bin/pip" install --upgrade pip -q
 
 # torch first and from the CUDA index, so the generic requirements.txt cannot
-# pull a CPU-only wheel over it afterwards.
-printf 'Installing torch from %s\n' "$COMFY_TORCH_INDEX"
-"$VENV/bin/pip" install -q --index-url "$COMFY_TORCH_INDEX" torch torchvision torchaudio
+# pull a CPU-only wheel over it afterwards. The version is pinned on purpose —
+# see config.env.example for why the working window is only one minor release
+# wide on this driver.
+printf 'Installing torch %s from %s\n' "$COMFY_TORCH_VERSION" "$COMFY_TORCH_INDEX"
+"$VENV/bin/pip" install -q --index-url "$COMFY_TORCH_INDEX" \
+    "torch==$COMFY_TORCH_VERSION" torchvision torchaudio
 
 printf 'Installing ComfyUI requirements\n'
 "$VENV/bin/pip" install -q -r "$COMFY_DIR/requirements.txt"
@@ -63,5 +67,11 @@ print("%s, %.1f GiB, torch %s" % (
     torch.cuda.get_device_properties(0).total_memory / 1024**3,
     torch.__version__))
 PY
+
+# Second half of the version window: a too-old torch passes the CUDA check above
+# and then dies at first import on comfy_kitchen's `list[int]` op annotation,
+# which only shows when the server actually starts. Fail here instead.
+printf 'comfy_kitchen check: '
+"$VENV/bin/python" -c 'import comfy_kitchen; print("OK")'
 
 printf '\ninstall done. Next: bash download-models.sh\n'

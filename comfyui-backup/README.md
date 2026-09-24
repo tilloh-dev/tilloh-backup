@@ -10,23 +10,22 @@ llama.cpp router on the **7900 XTX**. Same shape as `llama.cpp/` and
 Not by configuration — structurally. ComfyUI runs on PyTorch/**CUDA**, and the
 AMD card is not a CUDA device at all; llama.cpp runs on **Vulkan** and is pinned
 to `VULKAN0` = 7900 XTX. Neither can allocate on the other's card even by
-mistake. The one shared resource is **system RAM**, which `--lowvram` uses for
-the text encoder.
+mistake. The one shared resource is **system RAM**.
 
 ## Install
 
 ```sh
 cd comfyui-backup
-cp config.env.example config.env        # adjust COMFY_DIR if you want
+cp config.env.example config.env
 cp models.example.list models.list
-bash install.sh                         # ComfyUI + venv + torch(cu121) + GGUF node
-bash download-models.sh --all           # ~20 GB
+bash install.sh                         # ComfyUI + venv + pinned torch + GGUF node
+bash download-models.sh --all           # ~16 GB
 bash serve.sh                           # or install the unit below
 ```
 
-`install.sh` ends with a CUDA check and fails loudly if torch cannot see the
-card — a CPU-only wheel sneaking in over the CUDA one is the classic failure
-here, which is why torch is installed *before* `requirements.txt`.
+`install.sh` ends with two checks that both have to pass, because each catches a
+different half of a narrow version window (see `config.env.example`): torch must
+see the GPU, and `import comfy_kitchen` must succeed.
 
 ## As a service
 
@@ -36,36 +35,68 @@ systemctl --user daemon-reload
 systemctl --user enable --now comfyui.service
 ```
 
-## Sizing, measured by others (2026-09)
+## Measured on Gertrude, 2026-09-24
 
-Qwen-Image-2.1 needs ~24 GB in its fp8/int8 form and **~11.1 GB as a Q4 GGUF**,
-which is why the GGUF build is the only one that fits a 12 GB card. Keep the
-diffusion model on the GPU and let the text encoder live in system RAM — that
-saves 9–17 GB of VRAM at almost no speed cost. Sources:
-[Unsloth](https://unsloth.ai/docs/models/qwen-image-2.1),
-[WillItRunAI](https://willitrunai.com/image-models/qwen-image),
-[kombitz](https://www.kombitz.com/2026/09/20/how-to-use-qwen-image-2-1-gguf-in-comfyui/).
+RTX 3060 12 GB, driver 535.309.01, torch 2.7.1+cu126, Qwen-Image-2.1 int8 +
+qwen3vl_8b int8 encoder + bf16 VAE. 1024×1024, 20 steps, euler/simple, cfg 2.5:
 
-**Not yet measured on Gertrude** — no VRAM figure, no seconds-per-image, no
-confirmation that Q4 plus a bf16 encoder actually stays under 12 GB in practice.
-Fill this section in after the first real run; until then the numbers above are
-other people's.
+| Mode | Time | VRAM peak | Headroom |
+|---|---|---|---|
+| **`--lowvram` (default)** | **183.6 s** | **9515 MiB** | 2773 MiB |
+| `NORMAL_VRAM` | 201.7 s | 11411 MiB | 877 MiB |
+
+**`--lowvram` is both faster and leaner here**, which is the opposite of what
+the name suggests — it offloads, so it should cost time. It does not. The
+setting was originally chosen to make the model fit at all; that reasoning was
+wrong (it fits either way) but the conclusion held for a different, measured
+reason. `NORMAL_VRAM` is n=1, `--lowvram` is n=2 (186.6 s cold, 183.6 s warm).
+
+Cold and warm differ by 3 s, so the time is compute, not loading — which is what
+made the mode comparison meaningful in the first place.
+
+## Model choice: the GGUF route does not work for this model
+
+`ComfyUI-GGUF` cannot load Qwen-Image-2.1. The unsloth GGUFs carry no
+`general.architecture` field, so the loader falls back to guessing from tensor
+names, and its `detect_arch` only knows flux, sd3, aura, hidream, cosmos, hyvid
+and wan. There is no newer upstream commit — this is missing support, not a
+stale checkout.
+
+The native Comfy-Org safetensors are the better route anyway:
+
+| | GGUF Q4_K_M | Comfy-Org int8 |
+|---|---|---|
+| size | 3.91 GB | 6.76 GB |
+| loader | custom node | ComfyUI native |
+| source | community requant | official |
+| works | no | yes |
+
+The GGUF node is still installed and harmless; other models may need it.
+
+**Numbers quoted in blog posts did not survive contact**: "~11 GB for
+Qwen-Image-2.1" is wrong at both ends — the full bf16 model is 13.25 GB and the
+int8 build 6.76 GB — and the repo id `RealRebelAI/Qwen-Image-2.1-GGUF` does not
+exist (the real one is lowercase with an underscore). Everything above was
+measured on this box; anything that was not is marked as such.
 
 ## Reaching it from the Hermes agent
 
 Hermes runs in a Docker container (`nousresearch/hermes-agent`) on the
 `hermes_network` bridge, so **`127.0.0.1` from inside it is not the host**. Use
-the bridge gateway — `172.20.0.1` on Gertrude — which is the same route Hermes
-already uses to reach the llama.cpp router on `172.21.0.1:8081`. That is why
-`COMFY_HOST` defaults to `0.0.0.0` and not to loopback.
+the bridge gateway — `172.20.0.1` on Gertrude — the same route Hermes already
+uses for the llama.cpp router on `172.21.0.1:8081`. That is why `COMFY_HOST`
+defaults to `0.0.0.0`.
 
-UFW on Gertrude allows 8081 from `192.168.1.0/24`, `172.21.0.0/24` and
-`172.16.0.0/12`; port 8188 needs the same treatment before the container can
-reach it.
+UFW has `INPUT policy DROP`, so the container path needs an explicit rule even
+though it never leaves the machine:
 
-Hermes 0.15.1+ ships native ComfyUI support through its `image_gen` tool, and
-the `hermes-comfyui-local` plugin bundles a ready `qwen_image_2_1_txt2img`
-workflow, so no OpenAI-style adapter is needed:
+```sh
+sudo ufw allow from 172.16.0.0/12 to any port 8188 proto tcp comment 'ComfyUI from Docker'
+```
+
+Hermes 0.15.1+ speaks ComfyUI natively through its `image_gen` tool, and the
+`hermes-comfyui-local` plugin bundles a `qwen_image_2_1_txt2img` workflow, so no
+OpenAI-style adapter is needed:
 
 ```yaml
 image_gen:
@@ -76,6 +107,9 @@ image_gen:
     timeout: 600
 ```
 
-Gertrude runs Hermes **0.20.5**, and `HERMES_HOME=/opt/data` maps to
-`~/hermes/data` on the host — config and plugins therefore survive a container
-update, which matters because `wud` watches the image for new releases.
+`timeout: 600` matters — a generation takes ~184 s here, and the plugin default
+would be tight for larger batches.
+
+Gertrude runs Hermes **0.20.5** with `HERMES_HOME=/opt/data` mapped to
+`~/hermes/data`, so config and plugins survive the container updates `wud`
+triggers.

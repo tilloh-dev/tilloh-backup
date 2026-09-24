@@ -1,25 +1,33 @@
 # HuggingFace download manifest for:  ./download-models.sh --all
 # Copy to models.list (gitignored) and adjust.
 #
-# Format (pipe-separated):   repo_id | filename | comfy_subdir
+# Format (pipe-separated):   repo_id | path_in_repo | comfy_subdir
 #   - comfy_subdir is relative to $COMFY_DIR/models/
+#   - use "." when path_in_repo already carries the right folder: Comfy-Org's
+#     repo layout (diffusion_models/, text_encoders/, vae/) is exactly
+#     ComfyUI's, so those files place themselves.
 #
-# Lines starting with # are ignored. Downloads never land in this repo.
+# Everything here was verified against the HF API and loaded on Gertrude on
+# 2026-09-24. Repo ids quoted in blog posts did not check out.
 #
-# --- Qwen-Image-2.1, sized for a 12 GB card --------------------------------
-# The diffusion model must be the GGUF build: the fp8/int8 releases want ~24 GB.
-# Q4 sits at ~11 GB and is the quality/size pick the community converged on;
-# Q3 and Q2 exist for smaller cards, Q5/Q6/Q8 for larger ones.
-RealRebelAI/Qwen-Image-2.1-GGUF   | Qwen-Image-2.1-Q4.gguf            | unet
+# --- Qwen-Image-2.1, measured at 9515 MiB peak on a 12 GB card -------------
+# Native Comfy-Org safetensors, NOT a GGUF: ComfyUI-GGUF cannot load this model
+# (the unsloth GGUFs carry no general.architecture and its detect_arch has no
+# Qwen-Image entry). The int8 build is 6.76 GB against 13.25 GB for bf16.
+Comfy-Org/Qwen-Image-2.1 | diffusion_models/qwen_image_2.1_int8_convrot.safetensors | .
 #
-# Text encoder. bf16 is the reference; int8_convrot and w4a8 are the smaller
-# builds. With --lowvram the encoder runs from system RAM, so bf16 is fine on a
-# 32 GB host — drop to int8 if RAM gets tight or --lowvram is removed.
-Comfy-Org/Qwen-Image-2.1         | qwen3vl_8b_bf16.safetensors        | text_encoders
+# Text encoder, 8.71 GB. With --lowvram it is streamed rather than resident, so
+# this does not have to fit alongside the model.
+Comfy-Org/Qwen-Image-2.1 | text_encoders/qwen3vl_8b_int8_convrot.safetensors | .
 #
-# VAE
-Comfy-Org/Qwen-Image-2.1         | qwen_image_2.1_vae_bf16.safetensors | vae
+# VAE, 0.63 GB
+Comfy-Org/Qwen-Image-2.1 | vae/qwen_image_2.1_vae_bf16.safetensors | .
 #
-# --- Smaller alternatives, uncomment if 12 GB turns out to be tight ---------
-# RealRebelAI/Qwen-Image-2.1-GGUF | Qwen-Image-2.1-Q3.gguf             | unet
-# Comfy-Org/Qwen-Image-2.1        | qwen3vl_8b_int8_convrot.safetensors | text_encoders
+# --- Alternatives, untested here -------------------------------------------
+# Smaller encoder (5.88 GB), if RAM gets tight:
+# Comfy-Org/Qwen-Image-2.1 | text_encoders/qwen3vl_8b_w4a8.safetensors | .
+# Reference-quality model (13.25 GB) — does NOT fit 12 GB:
+# Comfy-Org/Qwen-Image-2.1 | diffusion_models/qwen_image_2.1_bf16.safetensors | .
+# Prompt-enhancing encoders for text-to-image / image-to-image (8.82 GB each):
+# Comfy-Org/Qwen-Image-2.1 | text_encoders/qwen3.5_9b_qwen_image_2.1_pe_t2i.int8_convrot.safetensors | .
+# Comfy-Org/Qwen-Image-2.1 | text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors | .
