@@ -1,0 +1,13 @@
+[Unit]
+Description=Run the llama.cpp health check every minute
+
+[Timer]
+# Eviction happens at runtime, not at load, so a one-shot check after startup
+# would never see it. First run 2 min after boot to let the router settle.
+OnBootSec=2min
+OnUnitActiveSec=60s
+AccuracySec=10s
+Unit=llama-healthcheck.service
+
+[Install]
+WantedBy=timers.target

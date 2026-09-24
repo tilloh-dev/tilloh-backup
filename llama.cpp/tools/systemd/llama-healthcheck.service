@@ -1,0 +1,7 @@
+[Unit]
+Description=llama.cpp health check (detect runtime eviction into host memory)
+Documentation=https://github.com/tilloh-dev/tilloh-backup
+
+[Service]
+Type=oneshot
+ExecStart=%h/tilloh-backup/llama.cpp/tools/healthcheck.sh

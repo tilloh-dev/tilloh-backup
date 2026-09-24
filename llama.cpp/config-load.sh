@@ -3,10 +3,19 @@
 # config-load.sh — resolve LLAMA_* settings for the bash tooling.
 # Source it, don't execute it:  source "$SCRIPT_DIR/config-load.sh"
 #
-# Precedence, strongest first: an exported env var, config.env, the Windows
-# host's config.ps1, config.env.example. The .example must come last — it
-# assigns values unconditionally and would otherwise clobber both an exported
-# value and the host's real one.
+# Precedence, strongest first: config.env, the Windows host's config.ps1,
+# config.env.example. The first of those that exists wins outright, and an
+# exported environment variable does NOT override it: config.env is the single
+# source of truth per machine (user decision 2026-09-24), so what a script does
+# is reproducible from that one file. The .example must still come last — it
+# assigns values unconditionally and would otherwise clobber the host's real one.
+#
+# Until 2026-09-24 three variables (LLAMA_MODELS_DIR, LLAMA_PRESET,
+# LLAMA_VERSION) were restored from the environment after sourcing while every
+# other LLAMA_* was silently clobbered. The header promised the broad rule and
+# the code implemented the narrow one, so `LLAMA_PORT=8099 ./server.sh` bound
+# 8081 and `LLAMA_AUTO_UPDATE=0` never disabled the update check. To pin a build
+# for RPC work, set LLAMA_VERSION in config.env instead of in the environment.
 #
 # Two bugs this file exists to fix, both hit on the Windows host:
 #   * config.env.example carries CRLF. `source` then fails on every line
@@ -75,7 +84,6 @@ _llama_source_ps1() {
 
 _llama_load_config() {
     local dir="$1"
-    local env_models_dir="${LLAMA_MODELS_DIR:-}" env_preset="${LLAMA_PRESET:-}" env_version="${LLAMA_VERSION:-}"
 
     if [[ -f "$dir/config.env" ]]; then
         _llama_source_cfg "$dir/config.env"
@@ -86,8 +94,5 @@ _llama_load_config() {
         _llama_source_cfg "$dir/config.env.example"
     fi
 
-    [[ -n "$env_models_dir" ]] && LLAMA_MODELS_DIR="$env_models_dir"
-    [[ -n "$env_preset" ]] && LLAMA_PRESET="$env_preset"
-    [[ -n "$env_version" ]] && LLAMA_VERSION="$env_version"
     return 0
 }
