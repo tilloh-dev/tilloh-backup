@@ -55,11 +55,11 @@ tooling/
 │   └── README.md                    # Measured verdict vs llama.cpp (loses for this workload)
 ├── comfyui-backup/                  # Image generation (ComfyUI on the RTX 3060)
 │   ├── config.env.example           # ComfyUI dir, bind, torch index (copy to config.env)
-│   ├── install.sh                   # Clone + venv + torch(cu121) + ComfyUI-GGUF node
+│   ├── install.sh                   # Clone + venv + pinned torch + ComfyUI-GGUF node
 │   ├── download-models.sh           # Pull the manifest into ComfyUI/models/
-│   ├── models.example.list          # Qwen-Image-2.1 GGUF + encoder + VAE
+│   ├── models.example.list          # Qwen-Image-2.1 int8 safetensors + encoder + VAE
 │   ├── serve.sh / systemd/          # Server on :8188 + user unit
-│   └── README.md                    # Sizing, Hermes wiring, what is still unmeasured
+│   └── README.md                    # Measured sizing/timings, Hermes wiring
 └── fresh_linux/debian-based/
     └── bootstrap-guide.md           # New machine setup checklist
 ```
@@ -197,8 +197,9 @@ doc file; this file only carries the one-line summary.
 ## ComfyUI config notes
 
 - **Second engine on the second GPU**: ComfyUI serves image generation on the RTX 3060 while llama.cpp keeps the 7900 XTX. They cannot collide over VRAM **structurally, not by configuration** — the AMD card is not a CUDA device and llama.cpp is pinned to Vulkan. System RAM is the one shared resource (`--lowvram` puts the text encoder there).
-- Qwen-Image-2.1 needs ~24 GB as fp8/int8 and **~11.1 GB as a Q4 GGUF**, so the GGUF build is the only one that fits 12 GB; GGUF loading additionally requires the `ComfyUI-GGUF` custom node. **These are other people's numbers** — nothing is measured on Gertrude yet, and `comfyui-backup/README.md` says so explicitly rather than implying otherwise.
-- `install.sh` installs torch from the CUDA wheel index **before** `requirements.txt`, because the generic requirements will otherwise pull a CPU-only wheel over it, and ends with a hard CUDA check so that failure is loud instead of a silent CPU fallback.
+- **Measured on Gertrude 2026-09-24** (1024×1024, 20 steps, Qwen-Image-2.1 int8 + qwen3vl_8b int8 encoder): `--lowvram` **183.6 s at a 9515 MiB peak**, `NORMAL_VRAM` 201.7 s at 11411 MiB. `--lowvram` is therefore both faster and leaner, the opposite of what the name suggests — it was originally set so the model would fit at all, which was the wrong reason for the right default. Cold and warm runs differ by 3 s, so the time is compute, not loading.
+- **The GGUF route does not work for this model.** The unsloth GGUFs carry no `general.architecture`, so `ComfyUI-GGUF` falls back to guessing from tensor names and its `detect_arch` only knows flux, sd3, aura, hidream, cosmos, hyvid and wan — with no newer upstream commit. The native Comfy-Org safetensors (`diffusion_models/qwen_image_2.1_int8_convrot.safetensors`, 6.76 GB) load without any custom node. **Figures quoted in blog posts did not survive contact**: "~11 GB" is wrong at both ends (bf16 is 13.25 GB, int8 6.76 GB) and the repo id `RealRebelAI/Qwen-Image-2.1-GGUF` does not exist.
+- **The torch version window is one minor release wide and `install.sh` pins it.** ComfyUI pins torch not at all, so the wheel index silently decides: cu121 tops out at 2.5.1 and cu124 at 2.6.0, both too **old** — `comfy_kitchen` registers an op annotated `stride: list[int]` and torch's `infer_schema` rejects PEP 585 builtins before 2.7 — while plain PyPI is too **new** for driver 535 ("driver is too old, found version 12020"). **2.7.1+cu126** satisfies both. `install.sh` installs torch *before* `requirements.txt` (which would otherwise pull a CPU-only wheel over it) and checks **both** halves of the window, because a too-old torch passes the CUDA check and only dies on the `comfy_kitchen` import when the server starts.
 - **Hermes reaches it over the Docker bridge gateway, not loopback**: the agent runs in a container on `hermes_network`, so `http://172.20.0.1:8188` — the same shape as the `172.21.0.1:8081` route it already uses for the llama.cpp router. UFW allows 8081 from the LAN and both docker ranges; 8188 needs the same rules. Hermes 0.15.1+ speaks ComfyUI natively through its `image_gen` tool and the `hermes-comfyui-local` plugin ships a `qwen_image_2_1_txt2img` workflow, so no OpenAI-style adapter is needed. Gertrude runs 0.20.5 with `HERMES_HOME=/opt/data` mapped to `~/hermes/data`, so config and plugins survive the container updates that `wud` triggers.
 
 ## Conventions

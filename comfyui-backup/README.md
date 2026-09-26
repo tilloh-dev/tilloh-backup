@@ -35,24 +35,43 @@ systemctl --user daemon-reload
 systemctl --user enable --now comfyui.service
 ```
 
-## Measured on Gertrude, 2026-09-24
+## Measured on Gertrude
 
-RTX 3060 12 GB, driver 535.309.01, torch 2.7.1+cu126, Qwen-Image-2.1 int8 +
-qwen3vl_8b int8 encoder + bf16 VAE. 1024×1024, 20 steps, euler/simple, cfg 2.5:
+RTX 3060 12 GB, driver 535.309.01, torch 2.7.1+cu126, qwen3vl_8b int8 encoder +
+bf16 VAE. 1024×1024, 20 steps, euler/simple, cfg 2.5.
+
+### `--lowvram` against `NORMAL_VRAM` (2026-09-24, Comfy-Org model)
 
 | Mode | Time | VRAM peak | Headroom |
 |---|---|---|---|
 | **`--lowvram` (default)** | **183.6 s** | **9515 MiB** | 2773 MiB |
 | `NORMAL_VRAM` | 201.7 s | 11411 MiB | 877 MiB |
 
-**`--lowvram` is both faster and leaner here**, which is the opposite of what
-the name suggests — it offloads, so it should cost time. It does not. The
-setting was originally chosen to make the model fit at all; that reasoning was
-wrong (it fits either way) but the conclusion held for a different, measured
-reason. `NORMAL_VRAM` is n=1, `--lowvram` is n=2 (186.6 s cold, 183.6 s warm).
+**`--lowvram` is both faster and leaner here**, the opposite of what the name
+suggests — it offloads, so it should cost time. It does not. The setting was
+originally chosen to make the model fit at all; that reasoning was wrong (it
+fits either way) but the conclusion held for a different, measured reason.
 
-Cold and warm differ by 3 s, so the time is compute, not loading — which is what
-made the mode comparison meaningful in the first place.
+### Uncensored swap (2026-09-26)
+
+The Comfy-Org model was replaced by `abenzerps`' uncensored build. Same format,
+same size, native loader, no config change.
+
+| Model | Run | Time | VRAM peak |
+|---|---|---|---|
+| Comfy-Org | cold | 186.6 s | 8871 MiB |
+| Comfy-Org | warm | 183.6 s | 9515 MiB |
+| uncensored | cold | 201.8 s | 8555 MiB |
+| uncensored | warm | 171.6 s | 9195 MiB |
+
+**No difference that survives the noise.** The spread *within* the uncensored
+model is 30 s (171.6–201.8) and exceeds the gap *between* the models; the VRAM
+ranges overlap. The swap is free.
+
+This also corrects the `--lowvram` comparison above: the two Comfy-Org runs
+happened to land 3 s apart, which made the box look far more repeatable than it
+is. Treat single runs here as indicative only — the mode comparison stands on a
+1.9 GB VRAM difference, not on its 18 s.
 
 ## Model choice: the GGUF route does not work for this model
 
@@ -72,6 +91,16 @@ The native Comfy-Org safetensors are the better route anyway:
 | works | no | yes |
 
 The GGUF node is still installed and harmless; other models may need it.
+
+Since 2026-09-26 the model served is `abenzerps`' **uncensored** build in the
+same int8 format. Note the two axes: the uncensored diffusion models are one
+family, and `pottokao`'s "Heretic" **text encoders** — including
+`qwen3vl_8b_int8_convrot_heretic.safetensors` in exactly this format — are
+another. That such a family exists suggests part of the refusal behaviour sits
+in the encoder rather than the diffusion model; only the model was swapped here.
+Provenance caveat: these are community re-releases with no checksums against an
+official source, and the repo bundles copies of the Comfy-Org encoder and VAE
+(identical files, so they are not re-downloaded).
 
 **Numbers quoted in blog posts did not survive contact**: "~11 GB for
 Qwen-Image-2.1" is wrong at both ends — the full bf16 model is 13.25 GB and the

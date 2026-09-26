@@ -10,11 +10,18 @@
 # Everything here was verified against the HF API and loaded on Gertrude on
 # 2026-09-24. Repo ids quoted in blog posts did not check out.
 #
-# --- Qwen-Image-2.1, measured at 9515 MiB peak on a 12 GB card -------------
-# Native Comfy-Org safetensors, NOT a GGUF: ComfyUI-GGUF cannot load this model
-# (the unsloth GGUFs carry no general.architecture and its detect_arch has no
-# Qwen-Image entry). The int8 build is 6.76 GB against 13.25 GB for bf16.
-Comfy-Org/Qwen-Image-2.1 | diffusion_models/qwen_image_2.1_int8_convrot.safetensors | .
+# --- Qwen-Image-2.1 (uncensored), measured 8555-9195 MiB peak --------------
+# Safetensors, NOT a GGUF: ComfyUI-GGUF cannot load this model at all (the
+# unsloth GGUFs carry no general.architecture and its detect_arch has no
+# Qwen-Image entry). Despite the repo name, abenzerps also publishes
+# safetensors, and its int8_convrot build is byte-for-byte the same size and
+# format as Comfy-Org's -- a drop-in with no config change. Measured against
+# the Comfy-Org original on 2026-09-26: no difference in time or VRAM that
+# survives the run-to-run spread (see README).
+abenzerps/Qwen-Image-2.1-Uncensored-GGUF | qwen-image-2.1-UC-int8_convrot.safetensors | diffusion_models
+#
+# The original, if the uncensored variant is not wanted:
+# Comfy-Org/Qwen-Image-2.1 | diffusion_models/qwen_image_2.1_int8_convrot.safetensors | .
 #
 # Text encoder, 8.71 GB. With --lowvram it is streamed rather than resident, so
 # this does not have to fit alongside the model.
