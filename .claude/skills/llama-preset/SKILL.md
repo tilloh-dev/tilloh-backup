@@ -201,7 +201,7 @@ a number without its neighbours cannot be reviewed:
 M=~/.local/share/llama.cpp/models/<dir>/<file>.gguf
 for c in 131072 163840 196608 262144; do
   printf 'ctx %-7s ' $c
-  llama-fit-params -m "$M" -ngl -1 -fa on -ctk q8_0 -ctv q8_0 -c $c -fitp on \
+  llama-fit-params -m "$M" -ngl -1 -fa on -ctk q8_0 -ctv q8_0 -c $c -fitp on -dev Vulkan0 \
     | awk '/^CUDA0|^Vulkan0/{printf "= %d MiB\n", $2+$3+$4}'
 done
 ```
@@ -215,6 +215,13 @@ else ever claims VRAM. Two caveats this repo has already hit:
 - A Windows-host binary given a `/mnt/c/...` path prints its header and no data
   line — a silent failure that reads exactly like "does not fit". If the memory
   numbers come back empty, check the path form before believing the verdict.
+- **Pass `-dev <device>`, matching the section's `device` key.** On a box with
+  more than one GPU, fit-params fits across *all* of them by default while the
+  preset pins one — measured 2026-09-26 on Gertrude, the split figure was less
+  than half the real footprint (11041 MiB reported against 22028 actual). Also
+  **keep one already-configured model in every sweep as a control**: the error
+  was invisible in the new model's own numbers and only surfaced because the
+  reference stopped reproducing its previous value.
 
 ### 4. Review before writing
 Read the `# source` comment on each emitted key. Prefer values marked

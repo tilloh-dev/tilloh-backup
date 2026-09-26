@@ -256,6 +256,20 @@ Installing the card also **renumbered the AMD GPU from `card0` to `card1`**, whi
 them by probing for `mem_info_vram_used` plus `vendor == 0x1002`; `healthcheck.sh` does the latter and survived
 the change untouched.
 
+**`llama-fit-params` now needs `-dev Vulkan0`, or it measures a configuration that never runs** (found
+2026-09-26). With two Vulkan devices present it fits across *both* by default, while every preset here pins
+`device = VULKAN0`. The same model, same build, same KV types:
+
+```
+without -dev:        Vulkan0  8808 1119 1114     Vulkan1  9940 1663 1615
+with -dev Vulkan0:   Vulkan0 18748 2782  498  =  22028 MiB
+```
+
+The split figure is less than half the real one. This was caught only because the reference model no longer
+reproduced its 2026-09-24 number — a sweep of a *new* model alone would have looked entirely plausible and been
+wrong by 12 GB. Add `-dev <device>` to every fit-params invocation on a multi-GPU box, and keep one known model
+in the sweep as a control.
+
 The box is headless — no connector on either card reports `connected` — so there is no Xorg or display-provider
 risk, and `amdgpu` is in-kernel, so `apt purge '~nnvidia'` is a clean rollback that cannot affect it. One
 unexplained observation: the same preset occupied 23419 MiB before the reboot and 24186 MiB after it. Both
