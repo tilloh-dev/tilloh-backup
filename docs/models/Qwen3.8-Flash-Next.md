@@ -167,3 +167,53 @@ therefore points `chat-template-file` at the patched copy under
 `llama.cpp/presets/templates/`; rendering is byte-identical for all other
 message shapes. Capture, affected-model table and the verification run:
 `docs/llama-operations.md`.
+
+## Strata engine measured (2026-09-30): 3.7–5× tg, 9× prefill — the expert-residency split, working
+
+User-requested test after a video on [Strata](https://github.com/Niko1221/Strata) (Niko1221, MIT, repo
+created 2026-09-24, several releases a day): a standalone engine built on llama.cpp/ggml parts that keeps
+a **GPU expert cache** (hot experts resident in VRAM, picked from a shipped expert-usage profile), computes
+cache misses on the CPU from pinned RAM, reads the 51B PLE/n-gram table lazily from NVMe, and runs the
+model's MTP head as drafter — i.e. exactly the hot/cold expert-residency split the 2026-09-08 addendum
+names as the only thing that could make MTP pay on this topology. Measurement only: installed to
+`E:/Llama.cpp/test-builds/strata/` (engine v0.1.27, Windows prebuilt, CUDA 13.0) with its data in
+`E:/Llama.cpp/test-builds/strata-data/`; nothing in `vendor/`, no preset (official-builds policy intact).
+
+**It cannot use the unsloth files.** Strata runs on ISTA-DASLab's GSQ-RCO quants (2 shards: experts + PLE
+table), so this test downloaded `E:/Llama.cpp/models/Qwen3.8-Flash-Next-GSQ-RCO/IQ3_XXS/` (47.0 + 28.8 GB);
+the MTP tensors (~5 GB) are range-fetched from the BF16 checkpoint by its setup. On the 4090 it fills
+**9223 of 24,576 experts (14.94 GiB)** into the VRAM cache (the video's 12 GB card: ~4500); ~43 GB RAM
+pinned, ~8.6 GB Windows RAM left free. ctx 131072, int8 KV with KV streaming, vision off, the
+"experimental speed projection" off (per its own README a refusal-direction control vector).
+
+Probes (same shape as the 09-07 retune; client-side streaming timing, random nonce per request so every
+run pays full prefill; temp 1.0 / top-p 0.95 / top-k 20 on all engines; n=3 each, median [range]):
+
+| Run | prose tg | rewrite tg | tg @19.7k | pp @19.7k | TTFT @19.7k |
+|---|---|---|---|---|---|
+| A0 Strata defaults | 69.9 [68.3–72.1] | 96.7 [88.2–98.6] | 74.4 [68.5–75.6] | 3158 | 6.3 s |
+| **A Strata `--calibrate`d** (`--pcie-frac 0.20`) | **76.7** [74.4–77.9] | **113.9** [102.2–116.0] | **81.5** [81.1–88.9] | **3179** | **6.2 s** |
+| C llama.cpp b10786, production section, unsloth UD-IQ3_XXS | 20.8 [19.4–22.2] | 22.9 [22.9–23.6] | 22.3 [22.0–22.6] | 350 | 56.5 s |
+| D llama.cpp b10786, same flags, GSQ-RCO IQ3_XXS (Strata's file) | 18.0 [16.4–18.1] | 18.2 [17.6–18.4] | 17.8 [17.6–18.2] | 399 | 49.6 s |
+
+Readings: (1) **C reproduces the 09-07 baseline** (22.3 vs 22.7 t/s @19k), so the comparison stands on a
+same-day control. (2) **D isolates the engine**: on llama.cpp Strata's own quant is ~20 % *slower* in tg
+than the unsloth file (prefill ~14 % faster), so the whole gain is the engine — 4.6× tg and 8× prefill
+against the same file, 3.7× / 9× against the production config. (3) MTP now pays: draft acceptance
+~52 % on prose, 80–86 % on the verbatim rewrite, expert-cache hit rate 77–93 % — with ~90 % of expert reads
+served from VRAM the verify batch no longer multiplies CPU expert reads, which is the mechanism the 09-08
+verdict blamed. (4) Its calibration swept CPU workers 12/15/23: flat within 1 % (113–114 t/s), so the
+P-core-only lesson from llama.cpp (`threads = 8`) no longer matters here — the CPU is off the critical path.
+The one setting it changed was the PCIe share (0.55 → 0.20: ship fewer missing experts over PCIe, let the
+13900KF compute them). (5) Output checked, not just timed: the 2400-char verbatim rewrite came back
+byte-identical, and the 19.7k-token summary correctly covered all five wikitext articles.
+
+Against the video's claims: the dev's 5070 table says 46 t/s @128K for IQ3_XXS; hermine does 81 t/s @19.7k
+(128K not measured). The "3×" circulating online was against an unknown baseline — against our own tuned
+llama.cpp it is 3.7× tg here, on a same-day control. The video's "no license" point is obsolete (MIT since).
+
+Not measured / open: quality beyond the two spot checks (GSQ-RCO vs unsloth quant, and whether Strata's
+kernels match llama.cpp numerically); 128K+ context; long multi-turn stability; Anthropic `/v1/messages`
+with Claude Code; the n-gram/PLE table's NVMe read pattern. Strata is a fork engine, so it cannot become a
+`models.ini` preset under the official-builds policy — adopting it (as a separate service beside the
+router, like ComfyUI) is a user decision. Raw rows: `E:/Llama.cpp/test-builds/strata-bench/results.jsonl`.
