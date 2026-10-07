@@ -68,5 +68,20 @@ if [[ -d "$SOURCE_DIR/hooks" ]]; then
 fi
 shopt -u nullglob
 
+# ── tide ─────────────────────────────────────────────────────────────────────
+# The process skills come from the tide plugin (tilloh-dev/tide). Add-only:
+# copies left by older installs are reported, never removed.
+h "tide  ${D}→ process skills from the plugin${R}"
+if grep -qs '"tide@tilloh"' "$TARGET_DIR/plugins/installed_plugins.json"; then
+  kv "tide@tilloh" "installed"
+else
+  warn "tide@tilloh not installed  ${D}claude plugin marketplace add tilloh-dev/tide && claude plugin install tide@tilloh${R}"
+fi
+for name in commit-push doku grill-mich klartext leserfreundlich; do
+  if [[ -d "$TARGET_DIR/skills/$name" ]]; then
+    warn "$name  ${D}now in tide, remove the old copy: rm -r ~/.claude/skills/$name${R}"
+  fi
+done
+
 printf '\n%sDone.%s %sSkills and hooks are live in new sessions; open %s/hooks%s once if a hook was registered just now.%s\n' \
   "$B" "$R" "$D" "$R$C" "$R$D" "$R"
