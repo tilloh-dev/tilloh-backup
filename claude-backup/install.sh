@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Claude Code personal-config installer (add-only).
 #
-# Copies skills and hook scripts from this backup into ~/.claude/ without removing
-# anything already there. Files this script owns are overwritten in place; skills
+# Copies skills and hook scripts from this backup into ~/.claude/ and links the
+# process skills from the tide repo, without removing anything already there. Files this script owns are overwritten in place; skills
 # and hooks from other sources (team installers, claude.ai sync) are kept.
 # ~/.claude/settings.json is never touched - hook registration is a manual merge
 # from hooks.md, because that file also carries the team command guard.
@@ -68,20 +68,31 @@ if [[ -d "$SOURCE_DIR/hooks" ]]; then
 fi
 shopt -u nullglob
 
-# ── tide ─────────────────────────────────────────────────────────────────────
-# The process skills come from the tide plugin (tilloh-dev/tide). Add-only:
-# copies left by older installs are reported, never removed.
-h "tide  ${D}→ process skills from the plugin${R}"
-if grep -qs '"tide@tilloh"' "$TARGET_DIR/plugins/installed_plugins.json"; then
-  kv "tide@tilloh" "installed"
+# ── tide skills ──────────────────────────────────────────────────────────────
+# The process skills live in the tide repo (tilloh-dev/tide) and are linked, not
+# copied, so there is one source. The tide plugin is not installed here: plain
+# `claude` loads it only in tide projects, the `tide` launcher everywhere.
+# Add-only: a real directory with the same name is reported, never replaced.
+TIDE_REPO=${TIDE_REPO:-$HOME/Programming/tide}
+h "tide skills  ${D}→ links into $(tilde "$TIDE_REPO")/plugin/skills${R}"
+if [[ -d "$TIDE_REPO/plugin/skills" ]]; then
+  for name in commit-push doku grill-mich klartext leserfreundlich; do
+    src="$TIDE_REPO/plugin/skills/$name"
+    dst="$TARGET_DIR/skills/$name"
+    if [[ ! -d "$src" ]]; then
+      warn "$name  ${D}not in the tide repo - skipped${R}"
+    elif [[ -L "$dst" && "$(readlink "$dst")" == "$src" ]]; then
+      kv "$name" "kept"
+    elif [[ -L "$dst" || ! -e "$dst" ]]; then
+      ln -sfn "$src" "$dst"
+      kv "$name" "linked"
+    else
+      warn "$name  ${D}an old copy is in the way: rm -r ~/.claude/skills/$name, then run again${R}"
+    fi
+  done
 else
-  warn "tide@tilloh not installed  ${D}claude plugin marketplace add tilloh-dev/tide && claude plugin install tide@tilloh${R}"
+  warn "tide repo not found  ${D}gh repo clone tilloh-dev/tide $(tilde "$TIDE_REPO"), or set TIDE_REPO${R}"
 fi
-for name in commit-push doku grill-mich klartext leserfreundlich; do
-  if [[ -d "$TARGET_DIR/skills/$name" ]]; then
-    warn "$name  ${D}now in tide, remove the old copy: rm -r ~/.claude/skills/$name${R}"
-  fi
-done
 
 printf '\n%sDone.%s %sSkills and hooks are live in new sessions; open %s/hooks%s once if a hook was registered just now.%s\n' \
   "$B" "$R" "$D" "$R$C" "$R$D" "$R"
