@@ -143,7 +143,7 @@ watching() {
 }
 
 # Switch kubernetes context
-go() {
+kgo() {
   check_args 1 "switch <namespace>" "switch monitoring" "$@" || return $?
   kubectl config set-context --current --namespace=$1
   echo "Switched to namespace: $1"
