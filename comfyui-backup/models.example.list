@@ -8,27 +8,37 @@
 #     ComfyUI's, so those files place themselves.
 #
 # Everything here was verified against the HF API and loaded on Gertrude on
-# 2026-09-24. Repo ids quoted in blog posts did not check out.
+# 2026-09-24 (Lightning LoRA: 2026-11-01). Repo ids quoted in blog posts did
+# not check out.
 #
-# --- Qwen-Image-2.1 (uncensored), measured 8555-9195 MiB peak --------------
+# --- Qwen-Image-2.1, Comfy-Org int8, 6.76 GB --------------------------------
 # Safetensors, NOT a GGUF: ComfyUI-GGUF cannot load this model at all (the
 # unsloth GGUFs carry no general.architecture and its detect_arch has no
-# Qwen-Image entry). Despite the repo name, abenzerps also publishes
-# safetensors, and its int8_convrot build is byte-for-byte the same size and
-# format as Comfy-Org's -- a drop-in with no config change. Measured against
-# the Comfy-Org original on 2026-09-26: no difference in time or VRAM that
-# survives the run-to-run spread (see README).
-abenzerps/Qwen-Image-2.1-Uncensored-GGUF | qwen-image-2.1-UC-int8_convrot.safetensors | diffusion_models
+# Qwen-Image entry).
+Comfy-Org/Qwen-Image-2.1 | diffusion_models/qwen_image_2.1_int8_convrot.safetensors | .
 #
-# The original, if the uncensored variant is not wanted:
-# Comfy-Org/Qwen-Image-2.1 | diffusion_models/qwen_image_2.1_int8_convrot.safetensors | .
+# LightX2V Lightning, 4 steps at cfg 1.0, 67 MB. The repo ships it under the
+# generic name pytorch_lora_weights.safetensors at its root, so it gets its own
+# folder; ComfyUI then lists it as
+# lightx2v-qwen-image-2.1-lightning/pytorch_lora_weights.safetensors.
+lightx2v/Qwen-Image-2.1-Lightning | pytorch_lora_weights.safetensors | loras/lightx2v-qwen-image-2.1-lightning
 #
-# Text encoder, 8.71 GB. With --lowvram it is streamed rather than resident, so
-# this does not have to fit alongside the model.
+# The uncensored build served 2026-09-26 to 2026-11-01. Same format and size,
+# but the Lightning LoRA is trained against the original:
+# abenzerps/Qwen-Image-2.1-Uncensored-GGUF | qwen-image-2.1-UC-int8_convrot.safetensors | diffusion_models
+#
+# Text encoder, 8.71 GB. Runs on the GPU and is swapped against the diffusion
+# model per job; both do not fit 12 GB at once, and do not need to.
 Comfy-Org/Qwen-Image-2.1 | text_encoders/qwen3vl_8b_int8_convrot.safetensors | .
 #
 # VAE, 0.63 GB
 Comfy-Org/Qwen-Image-2.1 | vae/qwen_image_2.1_vae_bf16.safetensors | .
+#
+# Upscaler, 67 MB, ESRGAN architecture. OFF by default in the Hermes plugin:
+# it turns small faces into caricatures (see README). Kept for opt-in on
+# content without people. Safetensors build, so no pickle to load.
+# License CC-BY-NC-SA 4.0: fine for this private box, not for commercial use.
+Kim2091/UltraSharp | 4x-UltraSharp.safetensors | upscale_models
 #
 # --- Alternatives, untested here -------------------------------------------
 # Smaller encoder (5.88 GB), if RAM gets tight:

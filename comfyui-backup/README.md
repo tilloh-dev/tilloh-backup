@@ -38,9 +38,98 @@ systemctl --user enable --now comfyui.service
 ## Measured on Gertrude
 
 RTX 3060 12 GB, driver 535.309.01, torch 2.7.1+cu126, qwen3vl_8b int8 encoder +
-bf16 VAE. 1024×1024, 20 steps, euler/simple, cfg 2.5.
+bf16 VAE, 1024×1024 throughout.
 
-### `--lowvram` against `NORMAL_VRAM` (2026-09-24, Comfy-Org model)
+### Lightning LoRA, and the encoder back on the GPU (2026-11-01)
+
+Served since: Comfy-Org `qwen_image_2.1_int8_convrot` + LightX2V Lightning LoRA,
+4 steps, cfg 1.0, euler/simple, AuraFlow shift 2.0 at 1 MP (`shift: auto`
+since the 2 MP switch below), **no `--lowvram`**.
+
+Shift 2.0 is not a guess. The LoRA's model card trains on sigmas
+[1.0, 0.75, 0.5, 0.25] with dynamic exponential shifting (base 0.5 at 256
+tokens, max 0.9 at 8192). At 1 MP that is mu ≈ 0.69, e^mu ≈ 2.0, and AuraFlow's
+shift formula is the same transform, so euler/simple at 4 steps with shift 2.0
+lands on the training schedule.
+
+| Setup | Edit job (with source image) | Text-to-image | VRAM peak |
+|---|---|---|---|
+| before: UC model, 10 steps, cfg 2.5, `--lowvram` | 155.7 / 189.4 s | — | — |
+| Lightning, `--lowvram` | 75.1 / 75.2 / 79.5 s | 33.8 / 34.1 s | — |
+| **Lightning, `NORMAL_VRAM`** | **45.2 / 45.9 / 48.9 s** | **20.1 / 33.6 s** | **11465 MiB** |
+
+Where the time went before: with `--lowvram` ComfyUI pins the text encoder to the
+**CPU** (`text_encoder_device()` in `comfy/model_management.py`), and an edit
+job runs it over the source image as well. That was ~70 s cold and ~48 s warm
+— negligible next to 20 steps at cfg 2.5, but two thirds of a 4-step job. On the
+GPU it takes a few seconds plus a swap: encoder in, diffusion model partially
+out, and back. Text-to-image at 20.1 s is the case where the prompt was cached
+and no swap happened.
+
+This reverses the 2026-09-24 conclusion below. That measurement was right for
+its workload and wrong for this one; the swap costs ~7 s and the CPU encoder
+~48 s. Dynamic VRAM (the other way to put the encoder on the GPU) needs torch
+≥ 2.8, which driver 535 rules out.
+
+Log noise, not a leak: `lowvram patches` in "Unloaded partially" grows by 128
+per job. ComfyUI resets the original weights before offloading and wipes the
+patches on the next full load (`wipe_lowvram_weight`); only the counter is never
+reset outside a full unpatch. Job times stay flat.
+
+Hermes builds the graph in its own `image_gen/gertrude-bild` plugin
+(`~/hermes/data/plugins/`), not the `hermes-comfyui-local` workflow mentioned
+below; the Lightning defaults live there. `steps` in a profile's
+`image_gen.gertrude-bild` block overrides them — six profiles had `steps: 10`.
+
+### Native 2 MP instead of an upscaler (2026-11-01)
+
+Qwen-Image **2.1** is trained up to ~4 MP — its model card lists 2048×2048 and
+2752×1536 as the supported sizes. The plugin's old ~1 MP budget came from the
+first Qwen-Image. It now generates at `megapixels: 2.0` (1824×1104 landscape,
+1408×1408 square), with `shift: auto` computing the Lightning schedule's
+dynamic shift per size (mu 0.5 → 0.9 over 256 → 8192 image tokens,
+shift = e^mu: 2.0 at 1 MP, 2.45 at 2 MP). 2 MP sits right at the LoRA's
+`max_image_seq_len` of 8192, so it is still inside its training range.
+
+| Same prompts | 1 MP | **2 MP (default)** | 4 MP |
+|---|---|---|---|
+| Text-to-image | 20–34 s | **53–54 s** | OOM in KSampler |
+| Edit (640² group photo source) | 44.8 s | **68.5 / 68.8 s** | not tried |
+
+Faces at 2 MP were natural in both a six-person text-to-image group shot and
+the six-person edit, with visibly more detail in hair, glasses and knitwear
+than 1 MP — none of the upscaler's artefacts. The plugin caps the budget at
+1472×1472, the largest size measured to fit on the edit path; 4 MP would need
+more aggressive offloading (e.g. `--reserve-vram`) and was not pursued.
+
+### Upscaler: built, then switched off (2026-11-01)
+
+The plugin can append `ImageUpscaleWithModel` after the VAE decode (run at the
+model's native 4x, scaled back to `upscale` with lanczos). It costs 8–10 s and
+gives 2048 px at 7–10 MB. **It is off by default (`upscale: 1.0`)**, because it
+ruins faces:
+
+- On a user's edit job (640×640 group photo, six adults, faces ~40 px wide in
+  the source), the same seed was re-run four ways. Lightning without upscaler
+  gave natural faces; Lightning *and* the 20-step base model both got
+  ink-outlined eyes and gapped, high-contrast teeth once 4x-UltraSharp ran.
+  The upscaler, not the LoRA, was the cause.
+- `4xNomosWebPhoto_RealPLKSR` (trained on degraded web photos) was milder but
+  showed the same mouth artefacts.
+- A text-to-image group shot (six people, full body) showed the same
+  caricature effect, so it is not specific to small source images.
+- Plain lanczos 2x is artefact-free and adds nothing but pixels.
+
+Opt in per profile (`upscale: 2.0`) only for content without people, e.g.
+signage. Anything above Telegram's 10 MB photo limit is not lost — Hermes'
+Telegram adapter retries a rejected `send_photo` as a document (50 MB).
+
+A real resolution gain for faces would need a second diffusion pass on the
+upscaled image (hires fix), not a GAN upscaler. Not built.
+
+### `--lowvram` against `NORMAL_VRAM` (2026-09-24, Comfy-Org model, superseded)
+
+20 steps, euler/simple, cfg 2.5.
 
 | Mode | Time | VRAM peak | Headroom |
 |---|---|---|---|
